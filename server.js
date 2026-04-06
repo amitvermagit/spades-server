@@ -293,15 +293,24 @@ wss.on('connection',(ws)=>{
 });
 
 // ── KEEP SERVER AWAKE on Render free tier ──
-// Self-ping every 14 minutes to prevent sleep
-const SELF_URL = process.env.RENDER_EXTERNAL_URL;
-if(SELF_URL){
-  setInterval(()=>{
-    require('http').get(SELF_URL.replace('https','http'),(res)=>{
-      console.log(`Self-ping OK (${res.statusCode})`);
-    }).on('error',(e)=>console.log('Self-ping error:',e.message));
-  }, 14*60*1000);
+// Render free tier sleeps after 15 min of no HTTP requests.
+// Self-ping every 14 min guarantees the server never sleeps mid-game.
+const SELF_URL = process.env.RENDER_EXTERNAL_URL || 'https://spades-server-xjlq.onrender.com';
+const https = require('https');
+function selfPing(){
+  const mod = SELF_URL.startsWith('https') ? https : require('http');
+  mod.get(SELF_URL, (res)=>{
+    console.log(`[Self-ping] OK ${res.statusCode} — server stays awake`);
+  }).on('error',(e)=>{
+    console.log(`[Self-ping] Error: ${e.message}`);
+  });
 }
+// First ping after 13 min, then every 14 min
+setTimeout(()=>{
+  selfPing();
+  setInterval(selfPing, 14*60*1000);
+}, 13*60*1000);
+console.log(`[Self-ping] Scheduled every 14 min to prevent Render sleep`);
 
 // Heartbeat log every 30s
 setInterval(()=>{
