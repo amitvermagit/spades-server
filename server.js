@@ -163,21 +163,29 @@ wss.on('connection',(ws)=>{
 
     // ── PLAY ──
     if(msg.type==='play'){
-      const pi=msg.playerIndex, ci=msg.cardIndex;
+      const pi=msg.playerIndex;
       if(G.phase!=='playing'||G.turnIndex!==pi) return;
       const hand=G.hands[pi];
-      // Filter out any null/hidden entries to get actual playable cards
-      const realHand=hand.filter(c=>c&&!c.hidden);
-      // ci is index into the real (non-hidden) hand on server
-      // but client sends index into G.hands[pi] directly
-      // Use ci into hand array directly, but validate it's a real card
+
+      // Find card by rank+suit identity (most reliable — index can drift)
+      let ci=-1;
+      if(msg.cardRank&&msg.cardSuit){
+        ci=hand.findIndex(c=>c&&c.r===msg.cardRank&&c.s===msg.cardSuit);
+      } else {
+        ci=msg.cardIndex; // fallback to index
+      }
+      if(ci<0||ci>=hand.length) return;
       const card=hand[ci];
       if(!card||card.hidden) return;
+
+      // Suit-follow validation using full hand (no hidden cards in player's own hand)
       const led=G.currentTrick.find(c=>c!==null);
-      // Suit-follow: check against real playable cards
-      const hasSuit=realHand.some(c=>c.s===led?.s);
-      if(led&&hasSuit&&card.s!==led.s){
-        send(ws,{type:'playError',msg:'Must follow suit ('+led.s+')! You have '+led.s+' cards.'});return;
+      if(led){
+        const hasSuit=hand.some(c=>c&&!c.hidden&&c.s===led.s);
+        if(hasSuit&&card.s!==led.s){
+          send(ws,{type:'playError',msg:'Must follow suit! You have '+led.s+' — play a '+led.s+' card.'});
+          return;
+        }
       }
       hand.splice(ci,1); G.currentTrick[pi]=card;
       if(G.currentTrick.every(c=>c!==null)){
