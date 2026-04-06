@@ -179,7 +179,8 @@ wss.on('connection',(ws)=>{
       if(!card||card.hidden) return;
 
       // Suit-follow validation using full hand (no hidden cards in player's own hand)
-      const led=G.currentTrick.find(c=>c!==null);
+      // Led card = the trick leader's card (defines the suit to follow)
+      const led=G.currentTrick[G.trickLeader]||null;
       if(led){
         const hasSuit=hand.some(c=>c&&!c.hidden&&c.s===led.s);
         if(hasSuit&&card.s!==led.s){
