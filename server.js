@@ -5,20 +5,27 @@ const PORT = process.env.PORT || 3000;
 const server = http.createServer((req,res)=>{
   res.setHeader('Access-Control-Allow-Origin','*');
   res.writeHead(200,{'Content-Type':'text/plain'});
-  res.end('Spades Royale ♠');
+  res.end('Spades Royale ♠ — Running');
 });
 
 const wss = new WebSocket.Server({server, verifyClient:()=>true});
 const rooms = {};
 
-function send(ws, data){ if(ws&&ws.readyState===1) try{ws.send(JSON.stringify(data));}catch(e){} }
-function broadcast(roomId, data){
-  const r=rooms[roomId]; if(!r) return;
-  r.players.filter(p=>p.ws.readyState===1).forEach(p=>send(p.ws,data));
+// ── UTILS ──
+function send(ws, data){
+  if(ws&&ws.readyState===1) try{ws.send(JSON.stringify(data));}catch(e){}
 }
-function broadcastExceptAdmin(roomId, data){
+
+function sendStateToAll(roomId){
   const r=rooms[roomId]; if(!r) return;
-  r.players.filter(p=>p.playerIndex>=0&&p.ws.readyState===1).forEach(p=>send(p.ws,data));
+  r.players.filter(p=>p.ws.readyState===1).forEach(p=>{
+    const view=JSON.parse(JSON.stringify(r.state));
+    if(p.playerIndex>=0){
+      view.hands=view.hands.map((h,i)=>i===p.playerIndex?h:h.map(()=>({hidden:true})));
+    }
+    view.myIndex=p.playerIndex;
+    send(p.ws,{type:'state',state:view});
+  });
 }
 
 // ── CARD UTILS ──
@@ -29,14 +36,12 @@ function genDeck(){
   return d;
 }
 function cardVal(c){
-  const R={'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14};
-  const S={'♠':4,'♥':3,'♦':2,'♣':1};
-  return S[c.s]*100+R[c.r];
+  return({'♠':4,'♥':3,'♦':2,'♣':1}[c.s])*100+({'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14}[c.r]);
 }
-function trickWinner(trick, leader){
+function trickWinner(trick,leader){
   let w=leader,wc=trick[leader];
   for(let i=0;i<4;i++){
-    if(i===leader) continue;
+    if(i===leader)continue;
     const c=trick[i];
     if(c.s==='♠'&&wc.s!=='♠'){w=i;wc=c;}
     else if(c.s===wc.s&&cardVal(c)>cardVal(wc)){w=i;wc=c;}
@@ -44,25 +49,48 @@ function trickWinner(trick, leader){
   return w;
 }
 
-// ── SEND STATE (hide other hands) ──
-function sendStateToAll(roomId){
-  const r=rooms[roomId]; if(!r) return;
-  r.players.filter(p=>p.ws.readyState===1).forEach(p=>{
-    const view=JSON.parse(JSON.stringify(r.state));
-    if(p.playerIndex>=0){
-      // players only see their own hand
-      view.hands=view.hands.map((h,i)=>i===p.playerIndex?h:h.map(()=>({hidden:true})));
+// ── ROOM CLEANUP ──
+function scheduleRoomCleanup(roomId, delayMs){
+  setTimeout(()=>{
+    if(!rooms[roomId]) return;
+    const alive=rooms[roomId].players.filter(p=>p.ws.readyState===1).length;
+    if(alive===0){
+      delete rooms[roomId];
+      console.log(`[${roomId}] Room cleaned up (no alive connections)`);
     }
-    view.myIndex=p.playerIndex; // -1 for admin
-    send(p.ws,{type:'state',state:view});
-  });
+  }, delayMs);
 }
 
+// Expire abandoned rooms after 2 hours regardless
+function setRoomExpiry(roomId){
+  setTimeout(()=>{
+    if(rooms[roomId]){
+      delete rooms[roomId];
+      console.log(`[${roomId}] Room expired (2hr limit)`);
+    }
+  }, 2*60*60*1000);
+}
+
+// ── WEBSOCKET ──
 wss.on('connection',(ws)=>{
   let roomId=null, playerIndex=-1;
-  const ping=setInterval(()=>{if(ws.readyState===1)ws.ping();},25000);
+  let isAlive=true;
+
+  // Ping every 25s; terminate if no pong received (dead connection)
+  const pingInterval=setInterval(()=>{
+    if(!isAlive){
+      console.log(`[${roomId}] P${playerIndex} — no pong, terminating`);
+      ws.terminate();
+      return;
+    }
+    isAlive=false;
+    if(ws.readyState===1) ws.ping();
+  }, 25000);
+
+  ws.on('pong',()=>{ isAlive=true; });
 
   ws.on('message',(raw)=>{
+    isAlive=true; // any message counts as alive
     let msg; try{msg=JSON.parse(raw);}catch(e){return;}
 
     // ── CREATE (admin) ──
@@ -83,18 +111,20 @@ wss.on('connection',(ws)=>{
           bidOrder:[0,1,2,3],bidTurn:0,totalBids:0,
           trickCount:0,turnIndex:-1,trickResult:null,endGame:false
         },
-        players:[{ws,playerIndex:-1}]
+        players:[{ws,playerIndex:-1}],
+        createdAt:Date.now()
       };
+      setRoomExpiry(roomId);
       send(ws,{type:'created',roomId});
       sendStateToAll(roomId);
-      console.log(`[${roomId}] created by ${msg.adminName}`);
+      console.log(`[${roomId}] Created by ${msg.adminName}`);
       return;
     }
 
     // ── JOIN (player) ──
     if(msg.type==='join'){
       const r=rooms[msg.roomId];
-      if(!r){send(ws,{type:'error',msg:'Room not found.'});return;}
+      if(!r){send(ws,{type:'error',msg:'Room not found. Ask admin to check connection.'});return;}
       const si=r.state.codes.indexOf(msg.code);
       if(si<0){send(ws,{type:'error',msg:'Invalid code.'});return;}
       const pi=si+1;
@@ -114,12 +144,13 @@ wss.on('connection',(ws)=>{
     // ── REJOIN ──
     if(msg.type==='rejoin'){
       const r=rooms[msg.roomId];
-      if(!r){send(ws,{type:'error',msg:'Room gone.'});return;}
+      if(!r){send(ws,{type:'error',msg:'Room no longer exists.'});return;}
       roomId=msg.roomId; playerIndex=msg.playerIndex;
       r.players=r.players.filter(p=>p.playerIndex!==playerIndex);
       r.players.push({ws,playerIndex});
       send(ws,{type:'rejoined',playerIndex});
       sendStateToAll(roomId);
+      console.log(`[${roomId}] P${playerIndex} rejoined`);
       return;
     }
 
@@ -144,18 +175,19 @@ wss.on('connection',(ws)=>{
 
     // ── BID ──
     if(msg.type==='bid'){
-      const pi=msg.playerIndex, bid=msg.bid;
+      const pi=msg.playerIndex, bid=Number(msg.bid);
       if(G.phase!=='bidding') return;
       if(G.bidOrder[G.bidTurn]!==pi||G.players[pi].bid>=0) return;
+      if(bid<0||bid>13){send(ws,{type:'bidError',msg:'Bid must be 0–13'});return;}
       if(G.bidTurn===3&&G.totalBids+bid===13){
-        send(ws,{type:'bidError',msg:"Can't make total equal 13!"});return;
+        send(ws,{type:'bidError',msg:"Can't make total exactly 13!"});return;
       }
       G.players[pi].bid=bid; G.totalBids+=bid; G.bidTurn++;
       if(G.bidTurn>=4){
         let mx=-1,ldr=0;
         G.players.forEach((p,i)=>{if(p.bid>mx){mx=p.bid;ldr=i;}});
         G.phase='playing'; G.turnIndex=ldr; G.trickLeader=ldr;
-        console.log(`[${roomId}] All bids in, ${G.players[ldr].name} leads`);
+        console.log(`[${roomId}] All bids in — P${ldr} leads`);
       }
       sendStateToAll(roomId);
       return;
@@ -167,41 +199,45 @@ wss.on('connection',(ws)=>{
       if(G.phase!=='playing'||G.turnIndex!==pi) return;
       const hand=G.hands[pi];
 
-      // Find card by rank+suit identity (most reliable — index can drift)
+      // Find card by rank+suit (immune to index drift)
       let ci=-1;
       if(msg.cardRank&&msg.cardSuit){
         ci=hand.findIndex(c=>c&&c.r===msg.cardRank&&c.s===msg.cardSuit);
       } else {
-        ci=msg.cardIndex; // fallback to index
+        ci=msg.cardIndex;
       }
       if(ci<0||ci>=hand.length) return;
       const card=hand[ci];
       if(!card||card.hidden) return;
 
-      // Suit-follow validation using full hand (no hidden cards in player's own hand)
-      // Led card = the trick leader's card (defines the suit to follow)
+      // Suit-follow: led card = trick leader's card
       const led=G.currentTrick[G.trickLeader]||null;
       if(led){
         const hasSuit=hand.some(c=>c&&!c.hidden&&c.s===led.s);
         if(hasSuit&&card.s!==led.s){
-          send(ws,{type:'playError',msg:'Must follow suit! You have '+led.s+' — play a '+led.s+' card.'});
+          send(ws,{type:'playError',msg:'Must follow suit ('+led.s+')! Play a '+led.s+' card.'});
           return;
         }
       }
-      hand.splice(ci,1); G.currentTrick[pi]=card;
+
+      hand.splice(ci,1);
+      G.currentTrick[pi]=card;
+
       if(G.currentTrick.every(c=>c!==null)){
         const w=trickWinner(G.currentTrick,G.trickLeader);
         G.players[w].tricks++; G.trickResult=w; G.trickCount++;
         sendStateToAll(roomId);
+
         if(G.trickCount>=13){
-          // Score and end round
           setTimeout(()=>{
+            if(!rooms[roomId]) return; // room may have been cleaned up
             G.players.forEach(p=>{p.score+=p.bid===p.tricks?p.bid*10:-(p.bid*10);});
             G.phase='roundEnd';
             sendStateToAll(roomId);
           },2000);
         } else {
           setTimeout(()=>{
+            if(!rooms[roomId]) return;
             G.currentTrick=[null,null,null,null];
             G.trickLeader=w; G.turnIndex=w; G.trickResult=null;
             sendStateToAll(roomId);
@@ -228,6 +264,7 @@ wss.on('connection',(ws)=>{
       G.turnIndex=-1; G.trickResult=null;
       G.players.forEach(p=>{p.bid=-1;p.tricks=0;});
       sendStateToAll(roomId);
+      console.log(`[${roomId}] Round ${G.round} started`);
       return;
     }
 
@@ -235,26 +272,42 @@ wss.on('connection',(ws)=>{
     if(msg.type==='endGame'){
       G.endGame=true; G.phase='gameEnd';
       sendStateToAll(roomId);
+      console.log(`[${roomId}] Game ended`);
+      // Clean up room after 5 min
+      setTimeout(()=>{
+        if(rooms[roomId]){delete rooms[roomId];console.log(`[${roomId}] Cleaned up after game end`);}
+      }, 5*60*1000);
       return;
     }
   });
 
   ws.on('close',()=>{
-    clearInterval(ping);
-    console.log(`[${roomId}] P${playerIndex} disconnected`);
-    setTimeout(()=>{
-      if(rooms[roomId]){
-        const alive=rooms[roomId].players.filter(p=>p.ws.readyState===1).length;
-        if(alive===0){delete rooms[roomId];console.log(`[${roomId}] cleaned up`);}
-      }
-    },120000);
+    clearInterval(pingInterval);
+    console.log(`[${roomId||'?'}] P${playerIndex} disconnected`);
+    if(roomId) scheduleRoomCleanup(roomId, 3*60*1000); // clean if all gone after 3min
   });
-  ws.on('error',()=>{});
+
+  ws.on('error',(err)=>{
+    console.log(`WS error [${roomId}] P${playerIndex}:`, err.message);
+  });
 });
 
+// ── KEEP SERVER AWAKE on Render free tier ──
+// Self-ping every 14 minutes to prevent sleep
+const SELF_URL = process.env.RENDER_EXTERNAL_URL;
+if(SELF_URL){
+  setInterval(()=>{
+    require('http').get(SELF_URL.replace('https','http'),(res)=>{
+      console.log(`Self-ping OK (${res.statusCode})`);
+    }).on('error',(e)=>console.log('Self-ping error:',e.message));
+  }, 14*60*1000);
+}
+
+// Heartbeat log every 30s
 setInterval(()=>{
   const rc=Object.keys(rooms).length;
-  if(rc>0) console.log(`Heartbeat: ${rc} rooms, ${wss.clients.size} clients`);
-},30000);
+  const cc=wss.clients.size;
+  console.log(`[Heartbeat] ${rc} rooms, ${cc} clients connected`);
+}, 30000);
 
-server.listen(PORT,()=>console.log(`♠ Spades on port ${PORT}`));
+server.listen(PORT,()=>console.log(`♠ Spades Royale server running on port ${PORT}`));

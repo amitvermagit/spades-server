@@ -1,21 +1,25 @@
-# Spades Royale — WebSocket Server
+# Spades Royale — Server
 
-## Deploy to Render.com (Free, 3 minutes)
+## Deploy to Render.com
 
-1. Push this folder to a GitHub repo (or upload as ZIP)
-2. Go to https://render.com and sign up free
-3. Click **New → Web Service**
-4. Connect your GitHub repo (or use public Git URL)
-5. Settings:
-   - **Build Command:** `npm install`
-   - **Start Command:** `npm start`
-   - **Plan:** Free
-6. Click **Create Web Service**
-7. Wait ~2 minutes for deploy
-8. Copy your URL (e.g. `https://spades-royale-xxxx.onrender.com`)
-9. Open admin.html and player.html — replace `YOUR_SERVER_URL` with your Render URL
+1. Push this folder to GitHub
+2. Go to render.com → New → Web Service
+3. Connect repo
+4. Build Command: `npm install`
+5. Start Command: `npm start`
+6. Plan: Free
 
-## Alternative: Deploy to Railway.app (also free)
-1. Go to https://railway.app
-2. New Project → Deploy from GitHub
-3. Same settings as above
+## Environment Variables (add in Render dashboard)
+
+| Variable | Value |
+|---|---|
+| `RENDER_EXTERNAL_URL` | Your Render URL e.g. `https://spades-server-xjlq.onrender.com` |
+
+Setting `RENDER_EXTERNAL_URL` enables the self-ping every 14 minutes which prevents
+the free tier from sleeping mid-game.
+
+## Reliability features
+- Ping/pong keepalive every 25s — dead connections terminated automatically
+- Rooms expire after 2 hours maximum
+- Self-ping every 14 min prevents Render free tier sleep during active games
+- Graceful reconnect support (rejoin message)
