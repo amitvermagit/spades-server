@@ -259,6 +259,30 @@ wss.on('connection',(ws)=>{
       return;
     }
 
+    // ── RESET ROUND (admin discards current round, deals fresh) ──
+    if(msg.type==='resetRound'){
+      if(playerIndex!==-1) return; // only admin
+      const d=genDeck();
+      // Reset round completely — same round number, same bid order, fresh deck
+      G.phase='bidding';
+      G.trump=null; G.trumpSelector=null;
+      G.hands=[d.slice(0,13),d.slice(13,26),d.slice(26,39),d.slice(39,52)];
+      // Keep same bidOrder (don't rotate — it's the same round restarted)
+      G.bidTurn=0; G.totalBids=0;
+      G.currentTrick=[null,null,null,null];
+      G.trickLeader=G.bidOrder[0]; G.trickCount=0;
+      G.turnIndex=-1; G.trickResult=null;
+      G.bidError=null; G.playError=null;
+      G.players.forEach(p=>{p.bid=-1;p.tricks=0;});
+      // Scores are NOT changed — only current round discarded
+      // Signal to clients that this is a reset (so they close modals)
+      G.roundReset=true;
+      sendStateToAll(roomId);
+      G.roundReset=false; // clear after broadcast
+      console.log(`[${roomId}] Round reset by admin`);
+      return;
+    }
+
     // ── END GAME ──
     if(msg.type==='endGame'){
       G.endGame=true;G.phase='gameEnd';
