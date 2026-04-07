@@ -221,7 +221,13 @@ wss.on('connection',(ws)=>{
         if(G.trickCount>=13){
           setTimeout(()=>{
             if(!rooms[roomId])return;
-            G.players.forEach(p=>{p.score+=p.bid===p.tricks?p.bid*10:-(p.bid*10);});
+            G.players.forEach(p=>{
+              if(p.bid===p.tricks){
+                p.score += p.bid===0 ? 10 : p.bid*10; // bid 0 & win 0 = +10 bonus
+              } else {
+                p.score -= p.bid===0 ? 10 : p.bid*10; // failed bid 0 = -10
+              }
+            });
             G.phase='roundEnd';
             sendStateToAll(roomId);
           },2000);
