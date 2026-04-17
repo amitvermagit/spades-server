@@ -60,10 +60,10 @@ function trickWinner(trick,leader,trump){
   }
   return w;
 }
-function freshGameState(adminName,codes){
+function freshGameState(adminName){
   const d=genDeck();
   return{
-    phase:'waiting',round:1,codes,
+    phase:'waiting',round:1,
     players:[
       {name:adminName,score:0,bid:-1,tricks:0},
       {name:'',score:0,bid:-1,tricks:0},
@@ -96,7 +96,7 @@ wss.on('connection',(ws)=>{
     // ── CREATE ──
     if(msg.type==='create'){
       roomId=msg.roomId; playerIndex=-1;
-      rooms[roomId]={state:freshGameState(msg.adminName,msg.codes),players:[{ws,playerIndex:-1}],createdAt:Date.now()};
+      rooms[roomId]={state:freshGameState(msg.adminName),players:[{ws,playerIndex:-1}],createdAt:Date.now()};
       setRoomExpiry(roomId);
       send(ws,{type:'created',roomId});
       sendStateToAll(roomId);
@@ -107,13 +107,20 @@ wss.on('connection',(ws)=>{
     // ── JOIN ──
     if(msg.type==='join'){
       const r=rooms[msg.roomId];
-      if(!r){send(ws,{type:'error',msg:'Room not found.'});return;}
-      const si=r.state.codes.indexOf(msg.code);
-      if(si<0){send(ws,{type:'error',msg:'Invalid code.'});return;}
-      const pi=si+1;
-      if(r.state.players[pi].name&&r.state.players[pi].name!==msg.name){
-        send(ws,{type:'error',msg:'Slot taken by '+r.state.players[pi].name});return;
+      if(!r){send(ws,{type:'error',msg:'Room not found. Check the Room ID.'});return;}
+      if(r.state.phase!=='waiting'){send(ws,{type:'error',msg:'Game already started.'});return;}
+      // Find next empty slot (1, 2, or 3)
+      let pi=-1;
+      // Allow rejoin by same name
+      for(let i=1;i<=3;i++){
+        if(r.state.players[i].name===msg.name){pi=i;break;}
       }
+      if(pi===-1){
+        for(let i=1;i<=3;i++){
+          if(!r.state.players[i].name){pi=i;break;}
+        }
+      }
+      if(pi===-1){send(ws,{type:'error',msg:'Room is full (4/4 players).'});return;}
       roomId=msg.roomId; playerIndex=pi;
       r.players=r.players.filter(p=>p.playerIndex!==pi);
       r.players.push({ws,playerIndex:pi});
