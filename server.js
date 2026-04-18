@@ -100,63 +100,66 @@ function botSelectTrump(hand){
 }
 
 function botChooseCard(hand,G,pi){
+  if(!hand||hand.length===0)return null;
   const trump=G.trump||'♠';
   const led=G.currentTrick[G.trickLeader]||null;
   const ledSuit=led?led.s:null;
 
   // Filter to legal cards (must follow suit if possible)
-  let legal=hand;
+  let legal=hand.slice();
   if(ledSuit&&hand.some(c=>c.s===ledSuit)){
     legal=hand.filter(c=>c.s===ledSuit);
   }
+  if(legal.length===0)legal=hand.slice();
 
-  // If leading the trick — lead highest non-trump, or trump if only trump left
+  // If leading — play highest non-trump card
   if(!led){
     const nonTrump=hand.filter(c=>c.s!==trump);
     const pool=nonTrump.length>0?nonTrump:hand;
-    // Lead highest card
     return pool.reduce((best,c)=>cardVal(c)>cardVal(best)?c:best,pool[0]);
   }
 
-  // Am I currently winning this trick?
-  const currentWinner=trickWinner(
-    G.currentTrick.map((c,i)=>c||(i===pi?{s:legal[0].s,r:'2'}:null)),
-    G.trickLeader,trump
-  );
-
-  // If I'm already winning — play lowest legal card
-  if(currentWinner===pi){
-    return legal.reduce((low,c)=>cardVal(c)<cardVal(low)?c:low,legal[0]);
+  // Find what's currently winning the trick (only look at played cards)
+  let winnerCard=led;
+  let winnerIdx=G.trickLeader;
+  for(let i=0;i<4;i++){
+    const tc=G.currentTrick[i];
+    if(!tc||i===pi)continue;
+    if(tc.s===trump&&winnerCard.s!==trump){winnerCard=tc;winnerIdx=i;}
+    else if(tc.s===winnerCard.s&&cardVal(tc)>cardVal(winnerCard)){winnerCard=tc;winnerIdx=i;}
   }
+  const iAmWinning=(winnerIdx===pi); // won't be true here since pi hasn't played
 
-  // Try to win with lowest winning card of led suit
+  // If I can follow suit
   if(ledSuit){
     const ledCards=legal.filter(c=>c.s===ledSuit);
     if(ledCards.length>0){
-      // Find lowest card that beats current winner
-      const winCard=G.currentTrick[currentWinner];
-      const beaters=ledCards.filter(c=>c.s===winCard.s&&cardVal(c)>cardVal(winCard));
+      // Try to beat current winner with lowest possible card
+      const beaters=ledCards.filter(c=>{
+        if(winnerCard.s===trump&&c.s!==trump)return false;
+        if(c.s===winnerCard.s)return cardVal(c)>cardVal(winnerCard);
+        return false;
+      });
       if(beaters.length>0)return beaters.reduce((low,c)=>cardVal(c)<cardVal(low)?c:low,beaters[0]);
-      // Can't beat — play lowest
+      // Can't beat in suit — play lowest
       return ledCards.reduce((low,c)=>cardVal(c)<cardVal(low)?c:low,ledCards[0]);
     }
-    // Can't follow suit — play lowest trump to win, or throw lowest card
-    const trumpCards=hand.filter(c=>c.s===trump);
-    if(trumpCards.length>0){
-      const winCard=G.currentTrick[currentWinner];
-      if(winCard.s!==trump){
-        // Play lowest trump to win
-        return trumpCards.reduce((low,c)=>cardVal(c)<cardVal(low)?c:low,trumpCards[0]);
-      }
-      // Current winner is already trump — beat with lowest higher trump if possible
-      const higherTrump=trumpCards.filter(c=>cardVal(c)>cardVal(winCard));
-      if(higherTrump.length>0)return higherTrump.reduce((low,c)=>cardVal(c)<cardVal(low)?c:low,higherTrump[0]);
-    }
-    // Can't win — throw lowest card
-    return hand.reduce((low,c)=>cardVal(c)<cardVal(low)?c:low,hand[0]);
   }
 
-  return legal.reduce((low,c)=>cardVal(c)<cardVal(low)?c:low,legal[0]);
+  // Can't follow suit — try trump
+  const trumpCards=hand.filter(c=>c.s===trump);
+  if(trumpCards.length>0){
+    if(winnerCard.s!==trump){
+      // Play lowest trump to win
+      return trumpCards.reduce((low,c)=>cardVal(c)<cardVal(low)?c:low,trumpCards[0]);
+    }
+    // Existing winner is trump — beat it with lowest higher trump
+    const higherTrump=trumpCards.filter(c=>cardVal(c)>cardVal(winnerCard));
+    if(higherTrump.length>0)return higherTrump.reduce((low,c)=>cardVal(c)<cardVal(low)?c:low,higherTrump[0]);
+  }
+
+  // Can't win — discard lowest card
+  return hand.reduce((low,c)=>cardVal(c)<cardVal(low)?c:low,hand[0]);
 }
 
 // ── BOT ACTION: called after any state change when it's a bot's turn ──
@@ -201,39 +204,44 @@ function scheduleBotAction(roomId){
     if(!bots.includes(pi))return;
     setTimeout(()=>{
       if(!rooms[roomId])return;
-      const hand=G.hands[pi];
-      if(!hand||hand.length===0)return;
-      const card=botChooseCard(hand,G,pi);
-      const ci=hand.findIndex(c=>c.r===card.r&&c.s===card.s);
-      if(ci<0)return;
-      hand.splice(ci,1);G.currentTrick[pi]=card;
-      if(G.currentTrick.every(c=>c!==null)){
-        const w=trickWinner(G.currentTrick,G.trickLeader,G.trump||'♠');
-        G.players[w].tricks++;G.trickResult=w;G.trickCount++;
-        sendStateToAll(roomId);
-        if(G.trickCount>=13){
-          setTimeout(()=>{
-            if(!rooms[roomId])return;
-            G.players.forEach(p=>{
-              if(p.bid===p.tricks){p.score+=p.bid===0?10:p.bid*10;}
-              else{p.score-=p.bid===0?10:p.bid*10;}
-            });
-            G.phase='roundEnd';sendStateToAll(roomId);
-          },2000);
+      try{
+        const hand=G.hands[pi];
+        if(!hand||hand.length===0)return;
+        const card=botChooseCard(hand,G,pi);
+        if(!card)return;
+        const ci=hand.findIndex(c=>c.r===card.r&&c.s===card.s);
+        if(ci<0)return;
+        hand.splice(ci,1);G.currentTrick[pi]=card;
+        if(G.currentTrick.every(c=>c!==null)){
+          const w=trickWinner(G.currentTrick,G.trickLeader,G.trump||'♠');
+          G.players[w].tricks++;G.trickResult=w;G.trickCount++;
+          sendStateToAll(roomId);
+          if(G.trickCount>=13){
+            setTimeout(()=>{
+              if(!rooms[roomId])return;
+              G.players.forEach(p=>{
+                if(p.bid===p.tricks){p.score+=p.bid===0?10:p.bid*10;}
+                else{p.score-=p.bid===0?10:p.bid*10;}
+              });
+              G.phase='roundEnd';sendStateToAll(roomId);
+            },2000);
+          } else {
+            setTimeout(()=>{
+              if(!rooms[roomId])return;
+              G.currentTrick=[null,null,null,null];
+              G.trickLeader=w;G.turnIndex=w;G.trickResult=null;
+              sendStateToAll(roomId);
+              scheduleBotAction(roomId);
+            },2000);
+          }
         } else {
-          setTimeout(()=>{
-            if(!rooms[roomId])return;
-            G.currentTrick=[null,null,null,null];
-            G.trickLeader=w;G.turnIndex=w;G.trickResult=null;
-            sendStateToAll(roomId);
-            scheduleBotAction(roomId);
-          },2000);
+          let nx=(pi+1)%4;while(G.currentTrick[nx]!==null)nx=(nx+1)%4;
+          G.turnIndex=nx;
+          sendStateToAll(roomId);
+          scheduleBotAction(roomId);
         }
-      } else {
-        let nx=(pi+1)%4;while(G.currentTrick[nx]!==null)nx=(nx+1)%4;
-        G.turnIndex=nx;
-        sendStateToAll(roomId);
-        scheduleBotAction(roomId);
+      } catch(e){
+        console.error('['+roomId+'] Bot P'+pi+' error:',e.message);
       }
     },900);
   }
