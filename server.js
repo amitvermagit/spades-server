@@ -309,23 +309,22 @@ wss.on('connection',(ws)=>{
       if(!r){send(ws,{type:'error',msg:'Room not found. Check the Room ID.'});return;}
       if(r.state.phase!=='waiting'){send(ws,{type:'error',msg:'Game already started.'});return;}
       const humanCount=r.state.humanCount||4;
-      // Human slots are 1 to (humanCount-1). Admin is slot 0.
-      // e.g. humanCount=2 → only slot 1 is for humans; slots 2,3 will be bots on start
-      const maxHumanSlot=humanCount-1; // last joinable slot index
+      const maxHumanSlot=Math.max(0,humanCount-1); // slots 1..maxHumanSlot open for humans
+      if(maxHumanSlot===0){
+        send(ws,{type:'error',msg:'This game is admin-only with all bots. No player slots.'});return;
+      }
       let pi=-1;
-      // Allow rejoin by same name in any human slot
+      // Allow rejoin by same name
       for(let i=1;i<=maxHumanSlot;i++){
         if(r.state.players[i].name===msg.name){pi=i;break;}
       }
       if(pi===-1){
-        // Find next empty human slot
         for(let i=1;i<=maxHumanSlot;i++){
           if(!r.state.players[i].name){pi=i;break;}
         }
       }
       if(pi===-1){
-        const spots=maxHumanSlot;
-        send(ws,{type:'error',msg:'Room is full. This game has '+spots+' human player slot'+(spots===1?'':'s')+'.'});
+        send(ws,{type:'error',msg:'Room is full — all '+maxHumanSlot+' player slot'+(maxHumanSlot>1?'s are':' is')+' taken.'});
         return;
       }
       roomId=msg.roomId;playerIndex=pi;
@@ -334,7 +333,7 @@ wss.on('connection',(ws)=>{
       r.state.players[pi].name=msg.name;
       send(ws,{type:'joined',playerIndex:pi});
       sendStateToAll(roomId);
-      console.log('['+roomId+'] '+msg.name+' joined as P'+pi);
+      console.log('['+roomId+'] '+msg.name+' joined as P'+pi+' (humanCount='+humanCount+')');
       return;
     }
 
