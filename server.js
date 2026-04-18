@@ -345,7 +345,7 @@ wss.on('connection',(ws)=>{
       r.state.players[pi].name=msg.name;
       send(ws,{type:'joined',playerIndex:pi});
       sendStateToAll(roomId);
-      console.log('['+roomId+'] '+msg.name+' joined as P'+pi+' (humanCount='+humanCount+')');
+      console.log('['+roomId+'] '+msg.name+' joined as P'+pi+' (botSeats='+JSON.stringify(r.state.botSeats)+')');
       return;
     }
 
