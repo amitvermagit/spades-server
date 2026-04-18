@@ -171,18 +171,23 @@ function scheduleBotAction(roomId){
   if(G.phase==='bidding'){
     const pi=G.bidOrder[G.bidTurn];
     if(pi===undefined||!bots.includes(pi))return;
+    const currentBidTurn=G.bidTurn; // capture before setTimeout
     setTimeout(()=>{
       if(!rooms[roomId])return;
-      const bid=botBid(G.hands[pi],G.totalBids,G.bidTurn===3,null);
+      // Guard: make sure this bot hasn't already bid (stale setTimeout)
+      if(G.bidTurn!==currentBidTurn||G.players[pi].bid>=0)return;
+      if(G.phase!=='bidding')return;
+      const isLast=currentBidTurn===3;
+      const bid=botBid(G.hands[pi],G.totalBids,isLast,null);
       G.players[pi].bid=bid;G.totalBids+=bid;G.bidTurn++;
       if(G.bidTurn>=4){
         let mx=-1,ldr=0;
         G.players.forEach((p,i)=>{if(p.bid>mx){mx=p.bid;ldr=i;}});
         G.phase='selectTrump';G.trumpSelector=ldr;G.trump=null;G.trickLeader=ldr;
-        console.log('['+roomId+'] All bids — P'+ldr+' selects trump');
+        console.log('['+roomId+'] All bids in — P'+ldr+' selects trump');
       }
       sendStateToAll(roomId);
-      scheduleBotAction(roomId); // chain — maybe next bidder is also a bot
+      scheduleBotAction(roomId);
     },800);
   }
 
@@ -191,8 +196,9 @@ function scheduleBotAction(roomId){
     if(!bots.includes(pi))return;
     setTimeout(()=>{
       if(!rooms[roomId])return;
+      if(G.phase!=='selectTrump'||G.trumpSelector!==pi)return; // stale guard
       G.trump=botSelectTrump(G.hands[pi]);
-      G.phase='playing';G.turnIndex=G.trumpSelector;
+      G.phase='playing';G.turnIndex=pi;
       console.log('['+roomId+'] Bot P'+pi+' selected trump: '+G.trump);
       sendStateToAll(roomId);
       scheduleBotAction(roomId);
@@ -204,6 +210,7 @@ function scheduleBotAction(roomId){
     if(!bots.includes(pi))return;
     setTimeout(()=>{
       if(!rooms[roomId])return;
+      if(G.phase!=='playing'||G.turnIndex!==pi)return; // stale guard
       try{
         const hand=G.hands[pi];
         if(!hand||hand.length===0)return;
