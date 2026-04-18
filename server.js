@@ -256,19 +256,16 @@ function scheduleBotAction(roomId){
 
 function freshGameState(adminName,humanCount){
   const d=genDeck();
+  // All player slots start empty — bots fill in on game start
   // humanCount = total humans including admin (1-4)
-  // bots fill remaining slots
-  const botNames=['Bot Alpha','Bot Beta','Bot Gamma'];
-  const players=[{name:adminName,score:0,bid:-1,tricks:0}];
-  const bots=[];
-  for(let i=1;i<=3;i++){
-    const isBot=i>=humanCount; // slots >= humanCount are bots
-    players.push({name:isBot?botNames[i-1]:'',score:0,bid:-1,tricks:0,isBot:isBot});
-    if(isBot)bots.push(i);
-  }
   return{
-    phase:'waiting',round:1,humanCount,bots,
-    players,
+    phase:'waiting',round:1,humanCount,bots:[],
+    players:[
+      {name:adminName,score:0,bid:-1,tricks:0},
+      {name:'',score:0,bid:-1,tricks:0},
+      {name:'',score:0,bid:-1,tricks:0},
+      {name:'',score:0,bid:-1,tricks:0}
+    ],
     hands:[d.slice(0,13),d.slice(13,26),d.slice(26,39),d.slice(39,52)],
     currentTrick:[null,null,null,null],trickLeader:0,
     bidOrder:[0,1,2,3],bidTurn:0,totalBids:0,
@@ -311,19 +308,26 @@ wss.on('connection',(ws)=>{
       const r=rooms[msg.roomId];
       if(!r){send(ws,{type:'error',msg:'Room not found. Check the Room ID.'});return;}
       if(r.state.phase!=='waiting'){send(ws,{type:'error',msg:'Game already started.'});return;}
-      // Only allow joining human slots (not bot slots)
-      const bots=r.state.bots||[];
+      const humanCount=r.state.humanCount||4;
+      // Human slots are 1 to (humanCount-1). Admin is slot 0.
+      // e.g. humanCount=2 → only slot 1 is for humans; slots 2,3 will be bots on start
+      const maxHumanSlot=humanCount-1; // last joinable slot index
       let pi=-1;
-      // Allow rejoin by same name
-      for(let i=1;i<=3;i++){
-        if(!bots.includes(i)&&r.state.players[i].name===msg.name){pi=i;break;}
+      // Allow rejoin by same name in any human slot
+      for(let i=1;i<=maxHumanSlot;i++){
+        if(r.state.players[i].name===msg.name){pi=i;break;}
       }
       if(pi===-1){
-        for(let i=1;i<=3;i++){
-          if(!bots.includes(i)&&!r.state.players[i].name){pi=i;break;}
+        // Find next empty human slot
+        for(let i=1;i<=maxHumanSlot;i++){
+          if(!r.state.players[i].name){pi=i;break;}
         }
       }
-      if(pi===-1){send(ws,{type:'error',msg:'No open slots in this room.'});return;}
+      if(pi===-1){
+        const spots=maxHumanSlot;
+        send(ws,{type:'error',msg:'Room is full. This game has '+spots+' human player slot'+(spots===1?'':'s')+'.'});
+        return;
+      }
       roomId=msg.roomId;playerIndex=pi;
       r.players=r.players.filter(p=>p.playerIndex!==pi);
       r.players.push({ws,playerIndex:pi});
@@ -353,6 +357,18 @@ wss.on('connection',(ws)=>{
     // ── START ──
     if(msg.type==='start'){
       if(G.phase!=='waiting')return;
+
+      // Fill remaining empty slots with bots
+      const botNames=['Bot Alpha','Bot Beta','Bot Gamma'];
+      G.bots=[];
+      for(let i=1;i<=3;i++){
+        if(!G.players[i].name){
+          G.players[i].name=botNames[i-1];
+          G.players[i].isBot=true;
+          G.bots.push(i);
+        }
+      }
+
       const d=genDeck();
       G.phase='bidding';
       G.hands=[d.slice(0,13),d.slice(13,26),d.slice(26,39),d.slice(39,52)];
