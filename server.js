@@ -254,12 +254,10 @@ function scheduleBotAction(roomId){
   }
 }
 
-function freshGameState(adminName,humanCount){
+function freshGameState(adminName){
   const d=genDeck();
-  // All player slots start empty — bots fill in on game start
-  // humanCount = total humans including admin (1-4)
   return{
-    phase:'waiting',round:1,humanCount,bots:[],
+    phase:'waiting',round:1,botSeats:[],bots:[],
     players:[
       {name:adminName,score:0,bid:-1,tricks:0},
       {name:'',score:0,bid:-1,tricks:0},
@@ -290,16 +288,34 @@ wss.on('connection',(ws)=>{
     // ── CREATE ──
     if(msg.type==='create'){
       roomId=msg.roomId;playerIndex=-1;
-      const humanCount=Math.min(4,Math.max(1,(msg.humanCount||4)));
       rooms[roomId]={
-        state:freshGameState(msg.adminName,humanCount),
+        state:freshGameState(msg.adminName),
         players:[{ws,playerIndex:-1}],
         createdAt:Date.now()
       };
       setRoomExpiry(roomId);
       send(ws,{type:'created',roomId});
       sendStateToAll(roomId);
-      console.log('['+roomId+'] Created by '+msg.adminName+', humans:'+humanCount);
+      console.log('['+roomId+'] Created by '+msg.adminName);
+      return;
+    }
+
+    // ── SET BOT SLOT (admin marks/unmarks a seat as bot) ──
+    if(msg.type==='setBotSlot'){
+      const r=rooms[msg.roomId];
+      if(!r||r.state.phase!=='waiting')return;
+      const slot=msg.slot;
+      if(slot<1||slot>3)return;
+      if(msg.isBot){
+        // Mark as bot — clear any human who joined this slot
+        r.state.players[slot].name='';
+        if(!r.state.botSeats.includes(slot))r.state.botSeats.push(slot);
+        // Remove any ws connection for this slot
+        r.players=r.players.filter(p=>p.playerIndex!==slot);
+      } else {
+        r.state.botSeats=r.state.botSeats.filter(s=>s!==slot);
+      }
+      sendStateToAll(msg.roomId);
       return;
     }
 
@@ -308,24 +324,20 @@ wss.on('connection',(ws)=>{
       const r=rooms[msg.roomId];
       if(!r){send(ws,{type:'error',msg:'Room not found. Check the Room ID.'});return;}
       if(r.state.phase!=='waiting'){send(ws,{type:'error',msg:'Game already started.'});return;}
-      const humanCount=r.state.humanCount||4;
-      const maxHumanSlot=Math.max(0,humanCount-1); // slots 1..maxHumanSlot open for humans
-      if(maxHumanSlot===0){
-        send(ws,{type:'error',msg:'This game is admin-only with all bots. No player slots.'});return;
-      }
+      const botSeats=r.state.botSeats||[];
       let pi=-1;
-      // Allow rejoin by same name
-      for(let i=1;i<=maxHumanSlot;i++){
-        if(r.state.players[i].name===msg.name){pi=i;break;}
+      // Allow rejoin by same name (in non-bot slots)
+      for(let i=1;i<=3;i++){
+        if(!botSeats.includes(i)&&r.state.players[i].name===msg.name){pi=i;break;}
       }
       if(pi===-1){
-        for(let i=1;i<=maxHumanSlot;i++){
-          if(!r.state.players[i].name){pi=i;break;}
+        // Find next empty non-bot slot
+        for(let i=1;i<=3;i++){
+          if(!botSeats.includes(i)&&!r.state.players[i].name){pi=i;break;}
         }
       }
       if(pi===-1){
-        send(ws,{type:'error',msg:'Room is full — all '+maxHumanSlot+' player slot'+(maxHumanSlot>1?'s are':' is')+' taken.'});
-        return;
+        send(ws,{type:'error',msg:'Room is full — no open seats available.'});return;
       }
       roomId=msg.roomId;playerIndex=pi;
       r.players=r.players.filter(p=>p.playerIndex!==pi);
@@ -357,11 +369,12 @@ wss.on('connection',(ws)=>{
     if(msg.type==='start'){
       if(G.phase!=='waiting')return;
 
-      // Fill remaining empty slots with bots
+      // Fill bot seats (admin-designated + any remaining empty slots)
       const botNames=['Bot Alpha','Bot Beta','Bot Gamma'];
       G.bots=[];
       for(let i=1;i<=3;i++){
-        if(!G.players[i].name){
+        const markedBot=(G.botSeats||[]).includes(i);
+        if(markedBot||!G.players[i].name){
           G.players[i].name=botNames[i-1];
           G.players[i].isBot=true;
           G.bots.push(i);
