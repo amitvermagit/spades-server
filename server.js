@@ -242,7 +242,7 @@ function scheduleBotAction(roomId){
             },2000);
           }
         } else {
-          let nx=(pi+1)%4;while(G.currentTrick[nx]!==null)nx=(nx+1)%4;
+          let nx=(pi+3)%4;while(G.currentTrick[nx]!==null)nx=(nx+3)%4;
           G.turnIndex=nx;
           sendStateToAll(roomId);
           scheduleBotAction(roomId);
@@ -266,7 +266,7 @@ function freshGameState(adminName){
     ],
     hands:[d.slice(0,13),d.slice(13,26),d.slice(26,39),d.slice(39,52)],
     currentTrick:[null,null,null,null],trickLeader:0,
-    bidOrder:[0,1,2,3],bidTurn:0,totalBids:0,
+    bidOrder:[0,3,2,1],bidTurn:0,totalBids:0,
     trickCount:0,turnIndex:-1,trickResult:null,endGame:false,
     trump:null,trumpSelector:null
   };
@@ -384,7 +384,7 @@ wss.on('connection',(ws)=>{
       const d=genDeck();
       G.phase='bidding';
       G.hands=[d.slice(0,13),d.slice(13,26),d.slice(26,39),d.slice(39,52)];
-      G.bidOrder=[0,1,2,3];G.bidTurn=0;G.totalBids=0;
+      G.bidOrder=[0,3,2,1];G.bidTurn=0;G.totalBids=0;
       G.currentTrick=[null,null,null,null];G.trickLeader=0;
       G.trickCount=0;G.turnIndex=-1;G.trickResult=null;
       G.trump=null;G.trumpSelector=null;
@@ -467,7 +467,7 @@ wss.on('connection',(ws)=>{
           },2000);
         }
       }else{
-        let nx=(pi+1)%4;while(G.currentTrick[nx]!==null)nx=(nx+1)%4;
+        let nx=(pi+3)%4;while(G.currentTrick[nx]!==null)nx=(nx+3)%4;
         G.turnIndex=nx;
         sendStateToAll(roomId);
         scheduleBotAction(roomId);

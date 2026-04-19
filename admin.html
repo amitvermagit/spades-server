@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- PWA / Mobile App support -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Spades ♠">
+<meta name="theme-color" content="#1c4a2a">
+<meta name="description" content="Spades Royale — multiplayer card game">
+<!-- Prevent text size adjust on orientation change -->
+<meta name="format-detection" content="telephone=no">
+<title>Spades Royale — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ivory:#faf6f0;--cream:#f3ede3;--parchment:#e8dfc8;
+  --forest:#1c4a2a;--moss:#2d6a3f;--sage:#c8dfc8;
+  --gold:#b8922a;--gold-l:#d4a843;--gold-pale:#f5e9c8;
+  --ink:#1a1a18;--muted:#6b6050;--border:#d4c9a8;
+  --red:#c0392b;--white:#fff;
+  --shadow:0 2px 20px rgba(28,74,42,.1);
+  --shadow-lg:0 8px 40px rgba(28,74,42,.15);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{font-size:17px;overscroll-behavior:none;}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;}
+.screen{display:none;}
+.active{display:flex!important;flex-direction:column;align-items:stretch;justify-content:flex-start;padding:0;min-height:100vh;}
+
+.logo{font-family:'Playfair Display',serif;font-size:clamp(2.2rem,6vw,3.6rem);font-weight:700;color:var(--forest);letter-spacing:-.01em;line-height:1;}
+.logo span{color:var(--gold);}
+.sub{font-size:.82rem;font-weight:300;color:var(--muted);letter-spacing:.18em;text-transform:uppercase;margin-top:.4rem;}
+.admin-tag{display:inline-block;background:var(--gold-pale);color:var(--gold);font-size:.7rem;font-weight:600;padding:.2rem .65rem;border-radius:99px;border:1px solid #e8cc80;margin-top:.5rem;letter-spacing:.08em;text-transform:uppercase;}
+
+.card-panel{background:var(--white);border:1px solid var(--border);border-radius:20px;padding:2rem;width:min(480px,95vw);box-shadow:var(--shadow-lg);position:relative;margin-top:1.2rem;}
+.card-panel::before{content:'';position:absolute;top:0;left:2rem;right:2rem;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);border-radius:99px;}
+.panel-title{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--forest);text-align:center;margin-bottom:1.2rem;}
+
+.field{margin-bottom:1rem;}
+.field label{display:block;font-size:.75rem;font-weight:500;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.4rem;}
+.field input{width:100%;background:var(--ivory);border:1.5px solid var(--border);border-radius:10px;padding:.75rem 1rem;font-family:'DM Sans',sans-serif;font-size:1rem;color:var(--ink);outline:none;transition:border-color .2s;}
+.field input:focus{border-color:var(--forest);box-shadow:0 0 0 3px rgba(28,74,42,.08);}
+.field input::placeholder{color:#b0a890;}
+
+.btn-primary{width:100%;padding:.85rem;background:var(--forest);color:var(--white);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:500;cursor:pointer;transition:all .2s;margin-top:.4rem;}
+.btn-primary:hover{background:var(--moss);transform:translateY(-1px);box-shadow:0 4px 16px rgba(28,74,42,.3);}
+.btn-gold{width:100%;padding:.85rem;background:linear-gradient(135deg,var(--gold),var(--gold-l));color:var(--white);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:500;cursor:pointer;transition:all .2s;margin-top:.4rem;}
+.btn-gold:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(184,146,42,.35);}
+.btn-danger{padding:.7rem 1.4rem;background:#fff;color:var(--red);border:1.5px solid #f5c6c6;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:500;cursor:pointer;transition:all .2s;}
+.btn-danger:hover{background:#fdf2f2;}
+.btn-outline{width:100%;padding:.75rem;background:transparent;color:var(--forest);border:1.5px solid var(--border);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:500;cursor:pointer;transition:all .2s;}
+.btn-outline:hover{border-color:var(--forest);background:rgba(28,74,42,.04);}
+
+/* Connection status */
+.conn-bar{display:flex;align-items:center;justify-content:center;gap:.5rem;font-size:.82rem;color:var(--muted);margin-bottom:.9rem;padding:.45rem .9rem;background:var(--ivory);border-radius:99px;border:1px solid var(--border);}
+.cdot{width:8px;height:8px;border-radius:50%;background:#e74c3c;transition:all .3s;flex-shrink:0;}
+.cdot.on{background:#27ae60;box-shadow:0 0 6px rgba(39,174,96,.5);}
+
+/* Room share */
+.room-share{background:var(--gold-pale);border:1px solid #e8cc80;border-radius:14px;padding:.9rem 1rem;text-align:center;cursor:pointer;margin:.7rem 0;transition:all .2s;}
+.room-share:hover{background:#f0dfb0;}
+.room-share-label{font-size:.68rem;font-weight:500;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.3rem;}
+.room-share-id{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--ink);letter-spacing:.04em;}
+.room-share-hint{font-size:.68rem;color:var(--gold);margin-top:.2rem;}
+
+/* Code grid */
+.codes-label{font-size:.72rem;font-weight:500;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;text-align:center;margin:.5rem 0 .4rem;}
+.codes-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-bottom:.6rem;}
+.code-card{background:var(--ivory);border:1.5px solid var(--border);border-radius:12px;padding:.75rem .5rem;text-align:center;cursor:pointer;transition:all .2s;}
+.code-card:hover{border-color:var(--forest);background:rgba(28,74,42,.04);}
+.code-label{font-size:.62rem;font-weight:500;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.25rem;}
+.code-val{font-family:'Playfair Display',serif;font-size:1.15rem;color:var(--forest);letter-spacing:.06em;}
+.code-hint{font-size:.58rem;color:var(--muted);margin-top:.2rem;}
+
+/* Lobby player list */
+.lobby-info{font-size:.88rem;color:var(--muted);text-align:center;margin:.5rem 0 .7rem;padding:.55rem;background:var(--ivory);border-radius:10px;border:1px solid var(--border);}
+.player-list{display:flex;flex-direction:column;gap:.45rem;margin:.5rem 0;}
+.player-row{display:flex;align-items:center;gap:.65rem;padding:.58rem .85rem;background:var(--ivory);border-radius:10px;border:1.5px solid var(--border);transition:all .25s;}
+.player-row.joined{border-color:#a8d5b5;background:#f0faf4;}
+.player-row.me{border-color:var(--gold);background:var(--gold-pale);}
+.pdot{width:9px;height:9px;border-radius:50%;background:var(--border);flex-shrink:0;transition:all .3s;}
+.pdot.joined{background:#27ae60;box-shadow:0 0 5px rgba(39,174,96,.5);}
+.pdot.me{background:var(--gold);box-shadow:0 0 5px rgba(184,146,42,.5);}
+.pname{flex:1;font-size:.92rem;}
+.pbadge{font-size:.63rem;font-weight:500;padding:.14rem .48rem;border-radius:99px;letter-spacing:.06em;text-transform:uppercase;}
+.pbadge.me{background:var(--gold-pale);color:var(--gold);border:1px solid #e8cc80;}
+.pbadge.joined{background:#eafaf1;color:#1e8449;border:1px solid #a8d5b5;}
+.pbadge.waiting{background:var(--cream);color:var(--muted);border:1px solid var(--border);}
+.err-msg{background:#fdf2f2;border:1px solid #f5c6c6;border-radius:8px;padding:.6rem .9rem;color:var(--red);font-size:.85rem;margin-top:.7rem;display:none;}
+
+/* ── GAME SCREEN ── */
+#gs{justify-content:flex-start!important;align-items:stretch!important;padding:.6rem!important;gap:.52rem;background:var(--cream);height:100dvh;height:100vh;overflow-y:auto;-webkit-overflow-scrolling:touch;position:relative;}
+
+.topbar{width:100%;display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;background:var(--white);border-radius:14px;box-shadow:var(--shadow);flex-shrink:0;}
+.topbar-title{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--forest);}
+.phase-badge{font-size:.72rem;font-weight:500;padding:.22rem .75rem;border-radius:99px;}
+.ph-b{background:var(--gold-pale);color:var(--gold);border:1px solid #e8cc80;}
+.ph-p{background:#eafaf1;color:#1e8449;border:1px solid #a8d5b5;}
+.ph-r{background:#fdf2f2;color:var(--red);border:1px solid #f5c6c6;}
+.round-badge{font-size:.72rem;font-weight:500;color:var(--muted);}
+
+.scores{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,120px));gap:.45rem;flex-shrink:0;justify-content:center;align-items:start;}
+.score-chip{background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:.55rem .4rem;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.05);transition:all .3s;align-self:start;}
+.score-chip.me{border-color:var(--gold);background:var(--gold-pale);}
+.score-chip.turn{border-color:var(--forest);animation:pulse 1.5s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(28,74,42,.2);}50%{box-shadow:0 0 0 4px rgba(28,74,42,.1);}}
+.chip-name{font-size:.62rem;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.03em;}
+.chip-score{font-family:'Playfair Display',serif;font-size:.95rem;color:var(--forest);font-weight:700;line-height:1.1;}
+.chip-meta{font-size:.62rem;color:var(--muted);margin-top:.05rem;}
+
+.table-area{width:100%;display:grid;grid-template-areas:'. top .' 'left center right' '. bot .';grid-template-columns:68px 1fr 68px;grid-template-rows:auto auto auto;gap:.35rem;}
+.seat{display:flex;flex-direction:column;align-items:center;gap:.22rem;}
+.seat-top{grid-area:top;}.seat-left{grid-area:left;justify-content:center;}.seat-right{grid-area:right;justify-content:center;}.seat-bot{grid-area:bot;}
+.seat-name{font-size:.72rem;font-weight:500;color:var(--forest);text-align:center;white-space:nowrap;}
+.seat-meta{font-size:.62rem;color:var(--muted);text-align:center;}
+.card-backs{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;}
+.cback{width:13px;height:19px;background:linear-gradient(135deg,var(--forest),var(--moss));border:1px solid rgba(255,255,255,.2);border-radius:3px;}
+
+.center-col{grid-area:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;}
+.felt-wrap{background:linear-gradient(145deg,var(--moss),var(--forest));border-radius:16px;padding:.55rem;box-shadow:inset 0 2px 10px rgba(0,0,0,.25),0 6px 20px rgba(28,74,42,.25);width:100%;box-sizing:border-box;}
+.trick-table{width:100%;height:auto;border-radius:12px;}
+.tt-svg{display:none;}
+.trick-slot{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 4px;}
+
+
+
+
+.slot-name{font-size:.68rem;color:rgba(255,255,255,.88);font-weight:600;text-align:center;white-space:nowrap;letter-spacing:.04em;text-shadow:0 1px 2px rgba(0,0,0,.7);}
+/* 2x2 grid for trick table */
+.trick-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;width:100%;}
+/* Each slot: card position label */
+.ts-label{font-size:.6rem;font-weight:600;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.06em;text-align:center;margin-bottom:2px;}
+.turn-status{font-family:'Playfair Display',serif;font-size:1rem;color:var(--forest);text-align:center;font-weight:600;min-height:1.4em;padding:.1rem .5rem;background:rgba(255,255,255,.7);border-radius:99px;}
+
+.pc{position:relative;z-index:2;width:58px;height:82px;background:var(--white);border-radius:8px;border:1px solid #d8d0c0;display:flex;flex-direction:column;padding:4px 5px;box-shadow:0 3px 12px rgba(0,0,0,.25);overflow:hidden;}
+.pc.red *{color:var(--red)!important;}
+.pc.blk *{color:var(--ink)!important;}
+.pc.win{box-shadow:0 0 0 3px var(--gold),0 0 16px rgba(184,146,42,.6);}
+.pc-e{position:relative;z-index:2;width:46px;height:66px;border:1.5px dashed rgba(255,255,255,.28);border-radius:7px;}
+
+.hand-area{width:100%;background:var(--white);border-radius:16px;padding:.5rem .6rem .7rem;flex-shrink:0;box-shadow:var(--shadow);overflow:visible;}
+.hand-label{font-size:.72rem;font-weight:500;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.55rem;text-align:center;}
+.hand-row{display:flex;flex-wrap:nowrap;gap:3px;justify-content:flex-start;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px;padding-top:14px;scroll-snap-type:x mandatory;}
+
+.card{width:58px;height:86px;touch-action:manipulation;background:var(--white);border-radius:9px;border:1px solid #d8d0c0;display:flex;flex-direction:column;padding:4px 5px;cursor:pointer;transition:transform .16s,box-shadow .16s;flex-shrink:0;user-select:none;box-shadow:0 2px 8px rgba(0,0,0,.12);overflow:visible;scroll-snap-align:start;}
+.card:hover{transform:translateY(-10px);box-shadow:0 12px 24px rgba(0,0,0,.18);}
+.card.sel{transform:translateY(-14px);box-shadow:0 0 0 2.5px var(--forest),0 12px 24px rgba(0,0,0,.18);}
+.card.np{opacity:.35;pointer-events:none;}
+.card.red *{color:var(--red)!important;}
+.card.blk *{color:var(--ink)!important;}
+.cr{font-size:.82rem;font-weight:700;line-height:1;font-family:'Playfair Display',serif;white-space:nowrap;}
+.cs{font-size:.88rem;line-height:1;}
+.cc{flex:1;display:flex;align-items:center;justify-content:center;font-size:1.5rem;overflow:hidden;}
+.cb2{transform:rotate(180deg);overflow:hidden;}
+
+.action-bar{width:100%;background:var(--white);border:1.5px solid var(--border);border-radius:16px;padding:.62rem .85rem;display:flex;align-items:center;gap:.5rem;flex-shrink:0;flex-wrap:wrap;box-shadow:var(--shadow);transition:border-color .25s,box-shadow .25s;}
+.action-bar.highlight{border-color:var(--forest);box-shadow:0 0 0 3px rgba(28,74,42,.08);}
+.action-msg{flex:1;font-family:'Playfair Display',serif;font-size:1rem;color:var(--ink);font-style:italic;min-width:120px;}
+.bid-wrap{display:flex;align-items:center;gap:.5rem;}
+.bid-btn{width:34px;height:34px;touch-action:manipulation;background:var(--sage);border:1.5px solid #a8c5a0;border-radius:8px;color:var(--forest);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;font-weight:700;}
+.bid-btn:hover{background:#b8d8b8;}
+.bid-val{width:44px;text-align:center;font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--forest);font-weight:600;}
+.act-btn{padding:.5rem 1.1rem;touch-action:manipulation;background:var(--forest);color:var(--white);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.act-btn:hover{background:var(--moss);}
+.act-btn.danger{background:#fff;color:var(--red);border:1.5px solid #f5c6c6;}
+.act-btn.danger:hover{background:#fdf2f2;}
+.h{display:none!important;}
+
+.overlay{position:fixed;inset:0;background:rgba(28,42,30,.5);display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(6px);}
+.overlay.h{display:none!important;}
+.modal{background:var(--white);border:1px solid var(--border);border-radius:22px;padding:2rem;width:min(400px,93vw);box-shadow:0 20px 60px rgba(0,0,0,.2);position:relative;}
+.modal::before{content:'';position:absolute;top:0;left:2rem;right:2rem;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);border-radius:99px;}
+.modal-title{font-family:'Playfair Display',serif;font-size:1.35rem;color:var(--forest);text-align:center;margin-bottom:1.2rem;}
+.result-row{display:flex;justify-content:space-between;align-items:center;padding:.55rem 0;border-bottom:1px solid var(--parchment);font-size:.95rem;}
+.result-row:last-child{border-bottom:none;}
+.pos{color:#1e8449;font-weight:600;font-family:'Playfair Display',serif;}
+.neg{color:var(--red);font-weight:600;font-family:'Playfair Display',serif;}
+.winner-text{font-family:'Playfair Display',serif;font-size:1.8rem;color:var(--forest);text-align:center;margin-bottom:.9rem;line-height:1.2;}
+.final-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1.2rem;}
+.final-card{background:var(--ivory);border:1px solid var(--border);border-radius:12px;padding:.7rem;text-align:center;}
+.final-name{font-size:.7rem;color:var(--muted);margin-bottom:.2rem;font-weight:500;}
+.final-score{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--forest);font-weight:600;}
+.modal-row{display:flex;gap:.7rem;margin-top:1.1rem;}
+
+.toast{position:fixed;bottom:1.8rem;left:50%;transform:translateX(-50%);background:var(--ink);border-radius:99px;padding:.6rem 1.4rem;color:var(--white);font-size:.85rem;z-index:200;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.3);}
+.toast.on{opacity:1;}
+
+@media(max-width:430px){
+  .card{width:48px;height:72px;}
+  .pc{width:44px;height:64px;}
+  .pc-empty{width:44px;height:64px;}
+  .cc{font-size:1.2rem;}
+  .cr{font-size:.72rem;}
+  .cs{font-size:.78rem;}
+  .scores{gap:.25rem;}
+  .chip-score{font-size:1rem;}
+  .table-area{grid-template-columns:58px 1fr 58px;}
+}
+
+/* Scrollbar for hand on mobile */
+.hand-row::-webkit-scrollbar{height:3px;}
+.hand-row::-webkit-scrollbar-track{background:transparent;}
+.hand-row::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+
+/* Trump selection */
+.trump-overlay{width:100%;flex-shrink:0;animation:fadeIn .25s ease;}
+.trump-overlay.h{display:none!important;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.trump-modal{background:var(--white);border:2px solid var(--gold);border-radius:16px;padding:1rem 1.1rem;text-align:center;position:relative;box-shadow:0 0 0 3px rgba(184,146,42,.12);}
+
+.trump-title{font-family:'Playfair Display',serif;font-size:1rem;color:var(--forest);margin-bottom:.2rem;font-weight:600;}
+.trump-sub{font-size:.8rem;color:var(--muted);margin-bottom:.65rem;}
+.trump-suits{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;}
+.trump-btn{padding:.65rem .3rem;touch-action:manipulation;border:2px solid var(--border);border-radius:12px;background:var(--ivory);cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:.2rem;}
+.trump-btn:hover{border-color:var(--forest);background:rgba(28,74,42,.05);transform:translateY(-2px);box-shadow:0 6px 18px rgba(28,74,42,.15);}
+.trump-suit-sym{font-size:1.8rem;line-height:1;}
+.trump-suit-name{font-size:.65rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;}
+/* Trump badge shown during play */
+.trump-badge{display:flex;align-items:center;gap:.35rem;font-size:.85rem;font-weight:700;padding:.28rem .85rem;border-radius:99px;background:var(--gold-pale);border:2px solid var(--gold);color:var(--gold);box-shadow:0 0 0 2px rgba(184,146,42,.15);}
+
+
+/* Trump selection */
+.trump-select{width:100%;background:var(--white);border:2px solid var(--gold);border-radius:16px;padding:.85rem 1rem;flex-shrink:0;box-shadow:0 0 0 4px rgba(184,146,42,.1);}
+.trump-title{font-family:'Playfair Display',serif;font-size:1rem;color:var(--forest);text-align:center;margin-bottom:.65rem;font-weight:600;}
+.trump-suits{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;}
+.trump-btn{padding:.65rem .3rem;touch-action:manipulation;border:1.5px solid var(--border);background:var(--white);border-radius:12px;font-size:1.6rem;cursor:pointer;transition:all .2s;text-align:center;line-height:1;}
+.trump-btn:hover{transform:translateY(-3px);box-shadow:0 6px 16px rgba(0,0,0,.15);}
+.trump-btn.spade{border-color:#444;}
+.trump-btn.heart{border-color:#c0392b;background:#fff8f8;}
+.trump-btn.diamond{border-color:#c0392b;background:#fff8f8;}
+.trump-btn.club{border-color:#444;}
+.trump-btn .suit-label{font-size:.62rem;font-weight:600;color:var(--muted);display:block;margin-top:.18rem;letter-spacing:.05em;text-transform:uppercase;}
+
+.player-count-wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:.45rem;margin-top:.35rem;}
+.pc-btn{padding:.55rem .3rem;background:var(--ivory);border:2px solid var(--border);border-radius:10px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:1.1rem;font-weight:700;color:var(--muted);transition:all .18s;display:flex;flex-direction:column;align-items:center;gap:.1rem;line-height:1;}
+.pc-btn span{font-size:.6rem;font-weight:400;color:var(--muted);line-height:1.2;text-align:center;}
+.pc-btn.active{background:var(--forest);border-color:var(--forest);color:#fff;}
+.pc-btn.active span{color:rgba(255,255,255,.75);}
+.pc-btn:hover:not(.active){border-color:var(--forest);color:var(--forest);}
+.pc-hint{font-size:.75rem;color:var(--muted);margin-top:.35rem;text-align:center;padding:.3rem;background:var(--ivory);border-radius:8px;}
+.bot-badge{display:inline-flex;align-items:center;gap:.2rem;font-size:.62rem;font-weight:600;padding:.15rem .5rem;border-radius:99px;background:#fdf8e8;border:1px solid #e8d870;color:#8a7000;letter-spacing:.04em;text-transform:uppercase;}
+
+
+/* Lobby bot seat button */
+.player-row{position:relative;}
+.add-bot-btn{padding:.28rem .7rem;background:var(--ivory);border:1.5px solid var(--border);border-radius:8px;font-size:.72rem;font-weight:600;color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap;font-family:'DM Sans',sans-serif;}
+.add-bot-btn:hover{border-color:var(--forest);color:var(--forest);background:rgba(28,74,42,.05);}
+.remove-bot-btn{padding:.28rem .7rem;background:#fdf8e8;border:1.5px solid #e8d870;border-radius:8px;font-size:.72rem;font-weight:600;color:#8a7000;cursor:pointer;transition:all .18s;white-space:nowrap;font-family:'DM Sans',sans-serif;}
+.remove-bot-btn:hover{background:#faf0b0;border-color:#c8b800;}
+
+
+#ss.active,#js.active,#ws.active{align-items:center;justify-content:center;padding:1.5rem 1rem;}
+</style>
+</head>
+<body>
+
+<!-- ── SETUP + LOBBY ── -->
+<div class="screen active" id="ss">
+  <div style="text-align:center;margin-bottom:1rem;">
+    <div class="logo">Spades <span>♠</span> Royale</div>
+    <div class="sub">Game Master Console</div>
+    <div class="admin-tag">♛ Admin</div>
+  </div>
+  <div class="card-panel">
+    <!-- Step 1: Enter name -->
+    <div id="s1">
+      <div class="panel-title">Create a New Game</div>
+      <div class="field">
+        <label>Your Name</label>
+        <input id="an" placeholder="e.g. Vikram" maxlength="20" onkeydown="if(event.key==='Enter')init()">
+      </div>
+      <button class="btn-primary" onclick="init()">Generate Game &amp; Codes →</button>
+      <div class="err-msg" id="e1"></div>
+    </div>
+
+    <!-- Step 2: Share codes -->
+    <div id="s2" style="display:none;">
+      <div class="conn-bar">
+        <span class="cdot" id="cdot"></span>
+        <span id="ctxt">Connecting…</span>
+      </div>
+      <div class="room-share" onclick="cpRoom()">
+        <div class="room-share-label">Room ID — share with all 3 players</div>
+        <div class="room-share-id" id="rid">—</div>
+        <div class="room-share-hint">tap to copy</div>
+      </div>
+      <div class="codes-label">Share this Room ID with all 3 players</div>
+      <div class="lobby-info" id="li">Waiting for players to join…</div>
+      <div class="player-list" id="pl"></div>
+      <button class="btn-gold" id="stBtn" style="display:none;" onclick="startGame()">▶ Start Game</button>
+      <div class="err-msg" id="e2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── GAME ── -->
+<div class="screen" id="gs">
+  <div class="topbar">
+    <div class="topbar-title">♠ Spades Royale</div>
+    <div style="display:flex;align-items:center;gap:.5rem;">
+      <span class="round-badge" id="rl">Round 1</span>
+    <div class="trump-badge h" id="trumpBadge"><span id="trumpSym">♠</span> Trump</div>
+      <span class="phase-badge ph-b" id="pp">Bidding</span>
+    </div>
+    <div style="display:flex;gap:.4rem;">
+      <button class="act-btn" style="background:#fff;color:var(--forest);border:1.5px solid var(--forest);font-size:.78rem;" onclick="cfReset()">↺ Reset Round</button>
+      <button class="act-btn danger" onclick="cfEnd()">End Game</button>
+    </div>
+  </div>
+
+  <div class="scores" id="sbar"></div>
+
+  <div class="table-area">
+    <div class="seat seat-top">
+      <div class="seat-name" id="nT">—</div>
+      <div class="card-backs" id="cT"></div>
+      <div class="seat-meta" id="mT"></div>
+    </div>
+    <div class="seat seat-left">
+      <div class="seat-name" id="nL">—</div>
+      <div class="card-backs" id="cL" style="flex-direction:column;gap:2px;"></div>
+      <div class="seat-meta" id="mL"></div>
+    </div>
+    <div class="center-col">
+      <div class="felt-wrap">
+        <div class="trick-table">
+          <div class="trick-grid">
+            <div style="grid-column:1/3;display:flex;justify-content:center;" class="trick-slot" id="ts0">
+              <div class="slot-name" id="tl0"></div>
+            </div>
+            <div class="trick-slot" id="ts3">
+              <div class="slot-name" id="tl3"></div>
+            </div>
+            <div class="trick-slot" id="ts1">
+              <div class="slot-name" id="tl1"></div>
+            </div>
+            <div style="grid-column:1/3;display:flex;justify-content:center;" class="trick-slot" id="ts2">
+              <div class="slot-name" id="tl2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="turn-status" id="tst"></div>
+    </div>
+    <div class="seat seat-right">
+      <div class="seat-name" id="nR">—</div>
+      <div class="card-backs" id="cR" style="flex-direction:column;gap:2px;"></div>
+      <div class="seat-meta" id="mR"></div>
+    </div>
+    <div class="seat seat-bot">
+      <div class="seat-name" style="color:var(--forest);font-weight:600;" id="nB">You</div>
+      <div class="seat-meta" id="mB"></div>
+    </div>
+  </div>
+
+  <!-- Trump selector — inline above hand so admin can see cards while picking -->
+  <div class="trump-overlay h" id="trumpOv">
+    <div class="trump-modal">
+      <div class="trump-title">⭐ Select the Trump Suit</div>
+      <div class="trump-sub" id="trumpSub">You have the highest bid — pick based on your cards below!</div>
+      <div class="trump-suits">
+        <button class="trump-btn" onclick="chooseTrump('♠')">
+          <span class="trump-suit-sym" style="color:#1a1a18;">♠</span>
+          <span class="trump-suit-name" style="color:#1a1a18;">Spades</span>
+        </button>
+        <button class="trump-btn" onclick="chooseTrump('♥')">
+          <span class="trump-suit-sym" style="color:#c0392b;">♥</span>
+          <span class="trump-suit-name" style="color:#c0392b;">Hearts</span>
+        </button>
+        <button class="trump-btn" onclick="chooseTrump('♦')">
+          <span class="trump-suit-sym" style="color:#c0392b;">♦</span>
+          <span class="trump-suit-name" style="color:#c0392b;">Diamonds</span>
+        </button>
+        <button class="trump-btn" onclick="chooseTrump('♣')">
+          <span class="trump-suit-sym" style="color:#1a1a18;">♣</span>
+          <span class="trump-suit-name" style="color:#1a1a18;">Clubs</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hand-area">
+    <div class="hand-label" id="hl">Your Hand</div>
+    <div class="hand-row" id="hr"></div>
+  </div>
+
+  <div class="action-bar" id="ab">
+    <div class="action-msg" id="am">Waiting…</div>
+    <div class="bid-wrap h" id="bwrap">
+      <button class="bid-btn" onclick="chBid(-1)">−</button>
+      <div class="bid-val" id="bv">0</div>
+      <button class="bid-btn" onclick="chBid(1)">+</button>
+      <button class="act-btn" onclick="submitBid()">Confirm Bid</button>
+    </div>
+    <button class="act-btn h" id="playBtn" onclick="playCard()">Play ♠</button>
+  </div>
+</div>
+
+<!-- Round Results -->
+<div class="overlay h" id="ro">
+  <div class="modal">
+    <div class="modal-title">Round Complete</div>
+    <div id="rc"></div>
+    <button class="btn-gold" style="margin-top:1.1rem;" onclick="nextRound()">Next Round →</button>
+  </div>
+</div>
+
+<!-- Confirm Reset -->
+<div class="overlay h" id="rco">
+  <div class="modal">
+    <div class="modal-title">Reset This Round?</div>
+    <p style="text-align:center;color:var(--muted);margin-bottom:1rem;font-size:.9rem;">Current round will be discarded. All players stay connected and a new round starts immediately.</p>
+    <div class="modal-row">
+      <button class="btn-danger" style="flex:1;padding:.8rem;" onclick="doReset()">Yes, Reset</button>
+      <button class="btn-outline" style="flex:1;padding:.8rem;" onclick="hide('rco')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm End -->
+<div class="overlay h" id="co">
+  <div class="modal">
+    <div class="modal-title">End the Game?</div>
+    <p style="text-align:center;color:var(--muted);margin-bottom:1rem;font-size:.9rem;">Scores will be tallied and a winner declared.</p>
+    <div class="modal-row">
+      <button class="btn-danger" style="flex:1;padding:.8rem;" onclick="doEnd()">Yes, End Game</button>
+      <button class="btn-outline" style="flex:1;padding:.8rem;" onclick="hide('co')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Final -->
+<div class="overlay h" id="fo">
+  <div class="modal">
+    <div class="winner-text" id="wb"></div>
+    <div class="final-grid" id="fgg"></div>
+    <button class="btn-primary" onclick="location.reload()">New Game</button>
+  </div>
+</div>
+
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SERVER_URL='https://spades-server-xjlq.onrender.com';
+const myIdx=0;
+let ws=null,G=null,AN='',codes=[],roomId='',bidV=0,selIdx=-1;
+
+// ── AUTO-REJOIN for admin after accidental refresh ──
+// Only fires if a real previous session exists
+window.addEventListener('load',function(){
+  const sName=sessionStorage.getItem('sr_admin_name');
+  const sRoom=sessionStorage.getItem('sr_admin_room');
+  if(sName&&sRoom&&sName.length>0&&sRoom.length===4){
+    AN=sName; roomId=sRoom;
+    $('an').value=AN;
+    const banner=document.createElement('div');
+    banner.style.cssText='position:fixed;top:0;left:0;right:0;background:#1c4a2a;color:#fff;text-align:center;padding:.65rem;font-size:.9rem;z-index:999;font-family:DM Sans,sans-serif;';
+    banner.innerHTML='Reconnecting as admin… Room: <b>'+sRoom+'</b> &nbsp;<button onclick="sessionStorage.clear();location.reload();" style="margin-left:.8rem;background:rgba(255,255,255,.2);border:none;color:#fff;padding:.2rem .6rem;border-radius:6px;cursor:pointer;font-size:.8rem;">Start Fresh</button>';
+    document.body.appendChild(banner);
+    $('s1').style.display='none';$('s2').style.display='block';
+    $('rid').textContent=roomId;
+    connectWS();
+    setTimeout(()=>{ if(banner.parentNode) banner.remove(); },8000);
+  }
+});
+
+function $(id){return document.getElementById(id);}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),3000);}
+function showE(id,m){const e=$(id);e.textContent=m;e.style.display='block';setTimeout(()=>e.style.display='none',5000);}
+function show(id){$(id).classList.remove('h');}
+function hide(id){$(id).classList.add('h');}
+function setConn(on){$('cdot').className='cdot'+(on?' on':'');$('ctxt').textContent=on?'Connected — players can join now':'Connecting…';}
+function send(obj){if(ws&&ws.readyState===1)ws.send(JSON.stringify(obj));}
+function cv(c){return({'♠':4,'♥':3,'♦':2,'♣':1}[c.s])*100+({'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14}[c.r]);}
+function isR(s){return s==='♥'||s==='♦';}
+function sc(s){return isR(s)?'red':'blk';}
+function genRoomId(){return String(Math.floor(1000+Math.random()*9000));}
+
+
+function init(){
+  AN=$('an').value.trim();
+  if(!AN){showE('e1','Enter your name.');return;}
+  roomId=genRoomId();
+  $('s1').style.display='none';$('s2').style.display='block';
+  $('rid').textContent=roomId;
+  sessionStorage.setItem('sr_admin_name', AN);
+  sessionStorage.setItem('sr_admin_room', roomId);
+  connectWS();
+}
+
+function connectWS(){
+  setConn(false);$('ctxt').textContent='Connecting… (first time may take 30–60s)';
+  const url=SERVER_URL.replace('https://','wss://').replace('http://','ws://');
+  try{ws=new WebSocket(url);}catch(e){setTimeout(connectWS,5000);return;}
+  const t=setTimeout(()=>{if(ws.readyState!==1){$('ctxt').textContent='Still waking server up…';ws.close();setTimeout(connectWS,5000);}},60000);
+  ws.onopen=()=>{clearTimeout(t);setConn(true);send({type:'create',roomId,adminName:AN});};
+  ws.onmessage=(e)=>{
+    let msg;try{msg=JSON.parse(e.data);}catch(ex){return;}
+    if(msg.type==='created'){$('li').textContent='Room ready! Share codes with players.';return;}
+    if(msg.type==='error'){showE('e2',msg.msg);return;}
+    if(msg.type==='bidError'){toast(msg.msg);return;}
+    if(msg.type==='playError'){toast(msg.msg);return;}
+    if(msg.type==='state'){
+      G=msg.state;
+      // Sync botSeats from server state
+      if(!G.botSeats)G.botSeats=[];
+      if(G.phase==='waiting'){renderLobby();return;}
+      if(!$('gs').classList.contains('active')){$('ss').classList.remove('active');$('gs').classList.add('active');}
+      // Close all modals on round reset
+      if(G.roundReset||G.phase==='bidding'){
+        hide('ro'); hide('trumpOv'); hide('rco');
+      }
+      renderGame();
+      // Show trump picker if admin is the trump chooser
+      if(G.phase==='selectTrump'&&G.trumpSelector===0){
+        $('trumpSub').textContent='You have the highest bid — choose the trump suit!';
+        show('trumpOv');
+      } else {
+        hide('trumpOv');
+      }
+    }
+  };
+  ws.onclose=()=>{clearTimeout(t);setConn(false);if(roomId)setTimeout(connectWS,3000);};
+  ws.onerror=()=>{clearTimeout(t);setConn(false);};
+}
+
+function cpRoom(){navigator.clipboard?.writeText(roomId).then(()=>toast('Room ID copied!')).catch(()=>toast('Room: '+roomId));}
+
+
+function renderLobby(){
+  if(!G)return;
+  // botSeats = set of slot indices admin has marked as bot
+  const botSeats=G.botSeats||[];
+  let readyCount=0,totalNeeded=0;
+
+  $('pl').innerHTML=G.players.map((p,i)=>{
+    if(i===0){
+      // Admin row
+      return`<div class="player-row me"><div class="pdot me"></div><div class="pname">${AN} (you)</div><span class="pbadge me">Admin</span></div>`;
+    }
+    const isBot=botSeats.includes(i);
+    const hasHuman=!!p.name&&!isBot;
+    if(!isBot)totalNeeded++;
+    if(hasHuman)readyCount++;
+
+    if(isBot){
+      // Bot slot — show bot badge + "Remove Bot" button
+      return`<div class="player-row joined"><div class="pdot joined"></div><div class="pname">🤖 Bot ${i}</div><div style="display:flex;align-items:center;gap:.4rem;"><span class="bot-badge">🤖 Bot</span><button class="remove-bot-btn" onclick="removeBot(${i})">✕ Remove</button></div></div>`;
+    } else if(hasHuman){
+      // Human joined — show name + joined badge
+      return`<div class="player-row joined"><div class="pdot joined"></div><div class="pname">${p.name}</div><span class="pbadge joined">Joined</span></div>`;
+    } else {
+      // Empty slot — show Add Bot button
+      return`<div class="player-row"><div class="pdot"></div><div class="pname" style="color:var(--muted);">Seat ${i+1}</div><div style="display:flex;align-items:center;gap:.4rem;"><span class="pbadge waiting">Waiting</span><button class="add-bot-btn" onclick="addBot(${i})">+ Add Bot</button></div></div>`;
+    }
+  }).join('');
+
+  const botCount=botSeats.length;
+  const humanCount=4-botCount; // total humans = 4 minus bots
+  const allReady=(readyCount===totalNeeded); // all non-bot non-admin slots filled
+
+  if(allReady&&botCount>0){
+    $('li').textContent='Ready! '+botCount+' bot'+(botCount>1?'s':'')+' will fill remaining seats.';
+  } else if(allReady&&botCount===0){
+    $('li').textContent='All 4 players ready! Click Start Game.';
+  } else {
+    $('li').textContent=readyCount+' / '+totalNeeded+' player'+(totalNeeded===1?'':' slot')+(totalNeeded===1?'':' filled')+'…';
+  }
+
+  $('stBtn').style.display=allReady?'block':'none';
+}
+
+function addBot(slot){
+  // Mark slot as bot locally and tell server
+  if(!G)return;
+  if(!G.botSeats)G.botSeats=[];
+  if(!G.botSeats.includes(slot))G.botSeats.push(slot);
+  send({type:'setBotSlot',roomId,slot,isBot:true});
+  renderLobby();
+}
+function removeBot(slot){
+  if(!G)return;
+  G.botSeats=(G.botSeats||[]).filter(s=>s!==slot);
+  send({type:'setBotSlot',roomId,slot,isBot:false});
+  renderLobby();
+}
+
+function startGame(){send({type:'start',roomId});}
+function nextRound(){hide('ro');send({type:'nextRound',roomId});}
+function cfReset(){show('rco');}
+function doReset(){
+  hide('rco');
+  send({type:'resetRound', roomId});
+}
+function cfEnd(){show('co');}
+function doEnd(){hide('co');send({type:'endGame',roomId});}
+
+function chBid(d){
+  if(!G)return;
+  bidV=Math.max(0,Math.min(bidV+d,13));
+  if(G.bidTurn===3&&G.totalBids+bidV===13)bidV=d>0?Math.min(bidV+1,13):Math.max(bidV-1,0);
+  $('bv').textContent=bidV;
+}
+function submitBid(){
+  if(!G||G.phase!=='bidding'||G.bidTurn>=4)return;
+  if(G.bidOrder[G.bidTurn]!==0||G.players[0].bid>=0)return;
+  if(G.bidTurn===3&&G.totalBids+bidV===13){toast("Can't make total=13!");return;}
+  send({type:'bid',roomId,playerIndex:0,bid:bidV});
+  G.players[0].bid=bidV;G.totalBids+=bidV;G.bidTurn++;
+  if(G.bidTurn>=4) G.phase='selectTrump';
+  bidV=0;$('bv').textContent='0';renderGame();
+}
+function chooseTrump(suit){
+  if(!G||G.phase!=='selectTrump'||G.trumpSelector!==0)return;
+  send({type:'selectTrump',roomId,playerIndex:0,suit:suit});
+  hide('trumpOv');
+}
+
+function selCard(idx){
+  if(!G||G.phase!=='playing'||G.turnIndex!==0)return;
+  const hand=(G.hands[0]||[]).filter(c=>!c.hidden);
+  const card=hand[idx];
+  const led=(G.trickLeader!=null)?G.currentTrick[G.trickLeader]:null;
+  if(led&&hand.some(c=>c.s===led.s)&&card&&card.s!==led.s){
+    toast('Must follow suit ('+led.s+')!');return;
+  }
+  selIdx=idx;renderGame();
+}
+function playCard(){
+  if(selIdx<0){toast('Select a card!');return;}
+  const hand=(G.hands[0]||[]).filter(c=>!c.hidden);
+  const card=hand[selIdx];
+  if(!card){toast('Card not found.');selIdx=-1;renderGame();return;}
+  const led=(G.trickLeader!=null)?G.currentTrick[G.trickLeader]:null;
+  if(led&&hand.some(c=>c.s===led.s)&&card.s!==led.s){
+    toast('Must follow suit! Play a '+led.s+' card.');return;
+  }
+  send({type:'play',roomId,playerIndex:0,cardIndex:selIdx,cardRank:card.r,cardSuit:card.s});
+  selIdx=-1;
+}
+
+function renderGame(){
+  if(!G)return;
+  $('rl').textContent='Round '+G.round;
+  const pp=$('pp'),pm={bidding:'ph-b',selectTrump:'ph-b',playing:'ph-p',roundEnd:'ph-r',gameEnd:'ph-r'};
+  pp.className='phase-badge '+(pm[G.phase]||'ph-b');
+  const phaseLabel={bidding:'Bidding',selectTrump:'Select Trump',playing:'Playing',roundEnd:'Round End',gameEnd:'Game End'};
+  pp.textContent=phaseLabel[G.phase]||G.phase;
+
+  $('sbar').innerHTML=G.players.map((p,i)=>{
+    const isMe=i===0,isT=i===G.turnIndex&&G.phase==='playing';
+    let meta='';
+    if(G.phase==='bidding')meta=p.bid>=0?'Bid '+p.bid:'—';
+    else if(G.phase==='playing'||G.phase==='roundEnd')meta='B:'+p.bid+' T:'+p.tricks;
+    return`<div class="score-chip ${isMe?'me':''} ${isT?'turn':''}"><div class="chip-name">${isMe?'You':p.name}</div><div class="chip-score">${p.score>=0?'+':''}${p.score}</div><div class="chip-meta">${meta}</div></div>`;
+  }).join('');
+
+  [{n:'nL',c:'cL',m:'mL',pi:1},{n:'nT',c:'cT',m:'mT',pi:2},{n:'nR',c:'cR',m:'mR',pi:3}].forEach(({n,c,m,pi})=>{
+    const p=G.players[pi],cnt=(G.hands[pi]||[]).filter(x=>!x.hidden).length,isT=pi===G.turnIndex&&G.phase==='playing';
+    $(n).textContent=p.name||'—';$(n).style.color=isT?'var(--gold)':'';
+    $(c).innerHTML=Array(Math.min(cnt,13)).fill('<div class="cback"></div>').join('');
+    let meta='';
+    if(G.phase==='bidding')meta=p.bid>=0?'Bid '+p.bid:'bidding…';
+    else if(G.phase==='playing'||G.phase==='roundEnd')meta='B:'+p.bid+' T:'+p.tricks;
+    $(m).textContent=meta;
+  });
+  const me=G.players[0];
+  $('nB').textContent=AN;
+  $('mB').textContent=me.bid>=0?'Bid: '+me.bid+(G.phase==='playing'?' · T: '+me.tricks:''):'';
+
+  const tmap=[2,3,0,1]; // top,right,bot(me=0),left
+  for(let cl=0;cl<4;cl++){
+    const pi=tmap[cl],card=G.currentTrick[pi],isW=G.trickResult===pi;
+    const sl=$('ts'+cl),lb=$('tl'+cl);
+    const nm=pi===0?AN:(G.players[pi]?.name||'—');
+    lb.textContent=nm;
+    lb.style.color=isW?'#ffd700':'rgba(255,255,255,.88)';
+    sl.querySelectorAll('.pc,.pc-e').forEach(e=>e.remove());
+    if(card&&!card.hidden){
+      const d=document.createElement('div');
+      d.className='pc '+sc(card.s)+(isW?' win':'');
+      d.innerHTML=`<div class="cr">${card.r}</div><div class="cs">${card.s}</div><div class="cc">${card.s}</div><div class="cb2"><div class="cr">${card.r}</div><div class="cs">${card.s}</div></div>`;
+      sl.insertBefore(d,lb);
+    } else {
+      const e=document.createElement('div');e.className='pc-e';sl.insertBefore(e,lb);
+    }
+  }
+
+  const ts=$('tst');
+  if(G.phase==='playing')ts.textContent=(G.turnIndex===0?'⭐ Your turn!':G.players[G.turnIndex]?.name+"'s turn")+(G.trump?' · Trump: '+G.trump:'');
+  else if(G.phase==='bidding'){
+    const bidder=G.bidOrder[G.bidTurn];
+    if(bidder!=null)ts.textContent=bidder===0?'⭐ Your turn to bid!':(G.players[bidder]?.name||'...')+' is bidding…';
+    else ts.textContent='Waiting…';
+  }
+  else if(G.phase==='selectTrump')ts.textContent=G.trumpSelector===0?'⭐ Select the trump suit!':G.players[G.trumpSelector]?.name+' is selecting trump…';
+  else ts.textContent='';
+  // Trump badge
+  const tb=$('trumpBadge');
+  if(tb){
+    if(G.trump){tb.classList.remove('h');$('trumpSym').textContent=G.trump;tb.style.color=isR(G.trump)?'var(--red)':'var(--ink)';}
+    else tb.classList.add('h');
+  }
+
+  const hand=(G.hands[0]||[]).filter(c=>!c.hidden);
+  const shand=[...hand].sort((a,b)=>cv(b)-cv(a));
+  $('hl').textContent='Your Hand — '+shand.length+' cards';
+  const canPlay=G.phase==='playing'&&G.turnIndex===0;
+  const ledCard=(G.trickLeader!=null)?G.currentTrick[G.trickLeader]:null;
+  // Clear selIdx if selected card is no longer legal to play
+  if(selIdx>=0&&canPlay&&ledCard&&hand.some(c=>c.s===ledCard.s)){
+    const sc2=hand[selIdx];
+    if(sc2&&sc2.s!==ledCard.s){selIdx=-1;}
+  }
+  $('hr').innerHTML=shand.map(card=>{
+    const oi=(G.hands[0]||[]).findIndex(c=>c.s===card.s&&c.r===card.r);
+    let playable=true;
+    if(canPlay&&ledCard&&hand.some(c=>c.s===ledCard.s)&&card.s!==ledCard.s)playable=false;
+    // Also disable trump cards if player has led suit (standard suit-follow)
+    return`<div class="card ${sc(card.s)}${selIdx===oi?' sel':''}${canPlay&&!playable?' np':''}" ${canPlay&&playable?'onclick="selCard('+oi+')"':''}><div class="cr">${card.r}</div><div class="cs">${card.s}</div><div class="cc">${card.s}</div><div class="cb2"><div class="cr">${card.r}</div><div class="cs">${card.s}</div></div></div>`;
+  }).join('');
+
+  const ab=$('ab'),am=$('am'),bw=$('bwrap'),pb=$('playBtn'),mb=me.bid;
+  ab.classList.toggle('highlight',(G.phase==='playing'&&G.turnIndex===0)||(G.phase==='bidding'&&G.bidOrder[G.bidTurn]!=null&&G.bidOrder[G.bidTurn]===0&&mb<0));
+  if(G.phase==='bidding'){
+    const cb=G.bidOrder[G.bidTurn];
+    if(cb===0&&mb<0){am.textContent='How many tricks will you win?';bw.classList.remove('h');pb.classList.add('h');}
+    else if(mb>=0){am.textContent='You bid '+mb+'. Waiting for others…';bw.classList.add('h');pb.classList.add('h');}
+    else{am.textContent=cb!=null?((G.players[cb]?.name||'...')+' is bidding…'):'All bids in, selecting trump…';bw.classList.add('h');pb.classList.add('h');}
+  }else if(G.phase==='playing'){
+    bw.classList.add('h');
+    if(G.turnIndex===0){am.textContent=selIdx>=0?'Card selected — play it!':'Select a card to play';pb.classList.remove('h');}
+    else{am.textContent='Waiting for '+G.players[G.turnIndex]?.name+'…';pb.classList.add('h');selIdx=-1;}
+  }else if(G.phase==='selectTrump'){
+    bw.classList.add('h');pb.classList.add('h');
+    am.textContent=G.trumpSelector===0?'Select the trump suit above!':G.players[G.trumpSelector]?.name+' is selecting trump…';
+  }else{am.textContent='Round complete…';bw.classList.add('h');pb.classList.add('h');}
+
+  if($('trumpOv')){
+    if(G.phase==='selectTrump'&&G.trumpSelector===0&&$('trumpOv').classList.contains('h')){
+      $('trumpSub').textContent='You have the highest bid — choose the trump suit!';
+      show('trumpOv');
+    }
+    if(G.phase!=='selectTrump') hide('trumpOv');
+  }
+  // Close round results if phase is no longer roundEnd (reset happened)
+  if(G.phase==='bidding'&&!$('ro').classList.contains('h')){
+    hide('ro');
+  }
+  if(G.phase==='roundEnd'&&$('ro').classList.contains('h')){
+    $('rc').innerHTML=G.players.map(p=>{const rs=p.bid===p.tricks?(p.bid===0?10:p.bid*10):(p.bid===0?-10:-(p.bid*10));return`<div class="result-row"><span style="${p.name===AN?'font-weight:600;color:var(--forest)':''}">${p.name===AN?'You ('+p.name+')':p.name}</span><span style="color:var(--muted);font-size:.82rem;">Bid ${p.bid} · Made ${p.tricks}</span><span class="${rs>=0?'pos':'neg'}">${rs>=0?'+':''}${rs}</span></div>`;}).join('');
+    show('ro');
+  }
+  if((G.phase==='gameEnd'||G.endGame)&&$('fo').classList.contains('h')){
+    let mx=-Infinity,wn='';G.players.forEach(p=>{if(p.score>mx){mx=p.score;wn=p.name;}});
+    $('wb').textContent=wn===AN?'🏆 You Win!':'🏆 '+wn+' Wins!';
+    const s=[...G.players].sort((a,b)=>b.score-a.score);
+    $('fgg').innerHTML=s.map((p,i)=>`<div class="final-card"><div class="final-name">${['🥇','🥈','🥉','4️⃣'][i]} ${p.name===AN?'You':p.name}</div><div class="final-score">${p.score>=0?'+':''}${p.score}</div></div>`).join('');
+    show('fo');
+  }
+}
+</script>
+
+<script>
+// ── Block pull-to-refresh on all mobile browsers ──
+(function(){
+  // Method 1: prevent touchmove when at top of scrollable area
+  let lastY=0;
+  document.addEventListener('touchstart',function(e){
+    lastY=e.touches[0].clientY;
+  },{passive:true});
+  document.addEventListener('touchmove',function(e){
+    const y=e.touches[0].clientY;
+    const el=e.target;
+    // Find the nearest scrollable parent
+    let scrollable=el;
+    while(scrollable&&scrollable!==document.body){
+      const st=window.getComputedStyle(scrollable);
+      const overflow=st.overflowY;
+      if(overflow==='auto'||overflow==='scroll'){break;}
+      scrollable=scrollable.parentElement;
+    }
+    const atTop=!scrollable||scrollable===document.body||scrollable.scrollTop===0;
+    const pullingDown=y>lastY;
+    if(atTop&&pullingDown){e.preventDefault();}
+    lastY=y;
+  },{passive:false});
+})();
+</script>
+</body>
+</html>
