@@ -181,8 +181,8 @@ function scheduleBotAction(roomId){
       const bid=botBid(G.hands[pi],G.totalBids,isLast,null);
       G.players[pi].bid=bid;G.totalBids+=bid;G.bidTurn++;
       if(G.bidTurn>=4){
-        let mx=-1,ldr=0;
-        G.players.forEach((p,i)=>{if(p.bid>mx){mx=p.bid;ldr=i;}});
+        let mx=-1,ldr=G.bidOrder[0];
+        for(const pi of G.bidOrder){if(G.players[pi].bid>mx){mx=G.players[pi].bid;ldr=pi;}}
         G.phase='selectTrump';G.trumpSelector=ldr;G.trump=null;G.trickLeader=ldr;
         console.log('['+roomId+'] All bids in — P'+ldr+' selects trump');
       }
@@ -404,8 +404,8 @@ wss.on('connection',(ws)=>{
       if(G.bidTurn===3&&G.totalBids+bid===13){send(ws,{type:'bidError',msg:"Can't make total exactly 13!"});return;}
       G.players[pi].bid=bid;G.totalBids+=bid;G.bidTurn++;
       if(G.bidTurn>=4){
-        let mx=-1,ldr=0;
-        G.players.forEach((p,i)=>{if(p.bid>mx){mx=p.bid;ldr=i;}});
+        let mx=-1,ldr=G.bidOrder[0];
+        for(const pi of G.bidOrder){if(G.players[pi].bid>mx){mx=G.players[pi].bid;ldr=pi;}}
         G.phase='selectTrump';G.trumpSelector=ldr;G.trump=null;G.trickLeader=ldr;
         console.log('['+roomId+'] All bids — P'+ldr+' selects trump');
       }
