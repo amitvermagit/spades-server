@@ -660,7 +660,7 @@ function renderGame(){
     return`<div class="score-chip ${isMe?'me':''} ${isT?'turn':''}"><div class="chip-name">${isMe?'You':p.name}</div><div class="chip-score">${p.score>=0?'+':''}${p.score}</div><div class="chip-meta">${meta}</div></div>`;
   }).join('');
 
-  [{n:'nL',c:'cL',m:'mL',pi:1},{n:'nT',c:'cT',m:'mT',pi:2},{n:'nR',c:'cR',m:'mR',pi:3}].forEach(({n,c,m,pi})=>{
+  [{n:'nL',c:'cL',m:'mL',pi:3},{n:'nT',c:'cT',m:'mT',pi:2},{n:'nR',c:'cR',m:'mR',pi:1}].forEach(({n,c,m,pi})=>{
     const p=G.players[pi],cnt=(G.hands[pi]||[]).filter(x=>!x.hidden).length,isT=pi===G.turnIndex&&G.phase==='playing';
     $(n).textContent=p.name||'—';$(n).style.color=isT?'var(--gold)':'';
     $(c).innerHTML=Array(Math.min(cnt,13)).fill('<div class="cback"></div>').join('');
@@ -673,7 +673,7 @@ function renderGame(){
   $('nB').textContent=AN;
   $('mB').textContent=me.bid>=0?'Bid: '+me.bid+(G.phase==='playing'?' · T: '+me.tricks:''):'';
 
-  const tmap=[2,3,0,1]; // top,right,bot(me=0),left
+  const tmap=[2,1,0,3]; // top,right,bot(me=0),left
   for(let cl=0;cl<4;cl++){
     const pi=tmap[cl],card=G.currentTrick[pi],isW=G.trickResult===pi;
     const sl=$('ts'+cl),lb=$('tl'+cl);

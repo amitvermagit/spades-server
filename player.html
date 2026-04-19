@@ -535,7 +535,7 @@ function renderGame(){
     return`<div class="score-chip ${isMe?'me':''} ${isT?'turn':''}"><div class="chip-name">${isMe?'You':p.name}</div><div class="chip-score">${p.score>=0?'+':''}${p.score}</div><div class="chip-meta">${meta}</div></div>`;
   }).join('');
 
-  [{n:'nL',c:'cL',m:'mL',pi:rel[1]},{n:'nT',c:'cT',m:'mT',pi:rel[2]},{n:'nR',c:'cR',m:'mR',pi:rel[3]}].forEach(({n,c,m,pi})=>{
+  [{n:'nL',c:'cL',m:'mL',pi:rel[3]},{n:'nT',c:'cT',m:'mT',pi:rel[2]},{n:'nR',c:'cR',m:'mR',pi:rel[1]}].forEach(({n,c,m,pi})=>{
     const p=G.players[pi],cnt=(G.hands[pi]||[]).length,isT=pi===G.turnIndex&&G.phase==='playing';
     $(n).textContent=p.name||'—';$(n).style.color=isT?'var(--gold)':'';
     $(c).innerHTML=Array(Math.min(cnt,13)).fill('<div class="cback"></div>').join('');
@@ -549,7 +549,7 @@ function renderGame(){
   $('mB').textContent=me.bid>=0?'Bid: '+me.bid+(G.phase==='playing'?' · Tricks: '+me.tricks:''):'';
 
   // Trick table: top=rel[2], right=rel[3], bot=me=rel[0], left=rel[1]
-  const tmap=[rel[2],rel[3],rel[0],rel[1]];
+  const tmap=[rel[2],rel[1],rel[0],rel[3]];
   for(let cl=0;cl<4;cl++){
     const pi=tmap[cl],card=G.currentTrick?G.currentTrick[pi]:null,isW=G.trickResult===pi;
     const sl=$('ts'+cl),lb=$('tl'+cl);
